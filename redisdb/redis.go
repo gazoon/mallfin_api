@@ -14,13 +14,13 @@ var (
 func NewDBConnection() *redis.Client {
 	conf := config.Redis()
 	client := redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("%s:%s", conf.Host, conf.Port),
+		Addr:     fmt.Sprintf("%s:%d", conf.Host, conf.Port),
 		Password: conf.Password,
 		DB:       conf.DB,
 	})
 	err := client.Ping().Err()
 	if err != nil {
-		log.WithFields(log.Fields{"location": "redis", "conf": conf}).Fatalf("Cannot connect to redis: %s", err)
+		log.WithFields(log.Fields{"location": "redis", "conf": conf}).Panicf("Cannot connect to redis: %s", err)
 	}
 	return client
 }
