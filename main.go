@@ -1,12 +1,13 @@
 package main
 
 import (
-	"fmt"
-
-	"github.com/iris-contrib/middleware/logger"
-	"github.com/iris-contrib/middleware/recovery"
-	"github.com/kataras/iris"
-
+	"flag"
+	log "github.com/Sirupsen/logrus"
+	"github.com/julienschmidt/httprouter"
+	"github.com/urfave/negroni"
+	"mallfin_api/config"
+	"mallfin_api/redisdb"
+	"mallfin_api/utils"
 	"net/http"
 )
 
@@ -15,23 +16,32 @@ type User struct {
 	Name string
 }
 
-func handler(ctx *iris.Context) {
+func handler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	u := User{}
-	fmt.Println("hello worlddddd")
-	err := ctx.ReadForm(&u)
-	if err != nil {
-		ctx.Log("ReadForm err: %s", err)
-		panic(err)
-	}
-	ctx.Log("User: %+v", u)
-	ctx.JSON(http.StatusOK, map[string]interface{}{"foo": "bar"})
+	log.Infof("User: %+v", u)
+	m := utils.NewDistributedMutex("kaaa")
+	m.Lock()
 }
+
 func main() {
-	iris.Use(recovery.New())
-	iris.OnError(iris.StatusInternalServerError, func(ctx *iris.Context) {
-		ctx.JSON(500, map[string]interface{}{"er": 2})
+	//log.SetFormatter(&log.JSONFormatter{})
+	var configPath string
+	flag.StringVar(&configPath, "conf", "", "Path to json config file.")
+	flag.Parse()
+	if configPath == "" {
+		log.WithField("location", "main").Panic("Cannot start without path to config")
+	}
+	config.Initialization(configPath)
+	redisdb.Initialization()
+	defer redisdb.Close()
+	r := httprouter.New()
+	r.GET("/", handler)
+	n := negroni.New()
+
+	n.Use(&negroni.Recovery{
+		Logger: log.StandardLogger(),
 	})
-	iris.Use(logger.New())
-	iris.Get("/", handler)
-	iris.Listen(":8080")
+	n.Use(&negroni.Logger{ALogger: log.StandardLogger()})
+	n.UseHandler(r)
+	http.ListenAndServe(":8080", n)
 }

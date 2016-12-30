@@ -1,0 +1,16 @@
+{
+  "debug": true,
+  "postgres": {
+    "host": "localhost",
+    "port": "5432",
+    "user": "gaz",
+    "password": "sudo",
+    "name": "mallfin"
+  },
+  "redis": {
+    "host": "localhost",
+    "port": "6379",
+    "password": "",
+    "db": 2
+  }
+}
