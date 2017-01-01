@@ -3,31 +3,47 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/mholt/binding"
 	"mallfin_api/config"
 	"mallfin_api/db"
 	"mallfin_api/redisdb"
 	"net/http"
+
 	"runtime/debug"
 
+	"encoding/json"
 	log "github.com/Sirupsen/logrus"
 	"github.com/gazoon/httprouter"
 	"github.com/urfave/negroni"
 )
 
-type User struct {
-	Age  int `form:"user_age"`
-	Name string
+type MallForm struct {
+	City  int
+	Shop  int
+	Query string
+	Ids   []int
+}
+
+func (mf *MallForm) FieldMap(req *http.Request) binding.FieldMap {
+	return binding.FieldMap{
+		&mf.City:  "city",
+		&mf.Shop:  "shop",
+		&mf.Query: "query",
+		&mf.Ids:   "ids",
+	}
 }
 
 func handler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	valInt, err := ps.ByNameInt("foo")
+	u := MallForm{}
+	log.Info(r.Header)
+	err := binding.Form(r, &u)
 	if err != nil {
-		log.Warn("NOT INT")
-		return
+		b, _ := json.Marshal(map[string]interface{}{"message": err.Error()})
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write(b)
+		log.Warn(err)
 	}
-	log.Info(valInt == 3)
-	log.Info(valInt)
-	u := User{}
 	log.Infof("User: %+v", u)
 
 }
@@ -64,7 +80,7 @@ func main() {
 	defer db.Close()
 
 	r := httprouter.New()
-	r.GET("/:foo/", handler)
+	r.GET("/malls/", handler)
 
 	n := negroni.New()
 	n.Use(&negroni.Logger{ALogger: log.StandardLogger()})
