@@ -4,50 +4,16 @@ import (
 	"fmt"
 	"mallfin_api/config"
 	"mallfin_api/db"
+	"mallfin_api/handlers"
 	"mallfin_api/redisdb"
 	"net/http"
-
-	"github.com/mholt/binding"
-
 	"runtime/debug"
-
-	"encoding/json"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/gazoon/httprouter"
 	"github.com/urfave/negroni"
 )
 
-type MallForm struct {
-	City  int
-	Shop  int
-	Query string
-	Ids   []int
-}
-
-func (mf *MallForm) FieldMap(req *http.Request) binding.FieldMap {
-	return binding.FieldMap{
-		&mf.City:  "city",
-		&mf.Shop:  "shop",
-		&mf.Query: "query",
-		&mf.Ids:   "ids",
-	}
-}
-
-func handler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	u := MallForm{}
-	log.Info(r.Header)
-	err := binding.Form(r, &u)
-	if err != nil {
-		b, _ := json.Marshal(map[string]interface{}{"message": err.Error()})
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write(b)
-		log.Warn(err)
-	}
-	log.Infof("User: %+v", u)
-
-}
 func recoveryMiddleware(w http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
 	defer func() {
 		if err := recover(); err != nil {
@@ -74,7 +40,8 @@ func main() {
 	defer db.Close()
 
 	r := httprouter.New()
-	r.GET("/malls/", handler)
+	r.GET("/malls/", handlers.MallsList)
+	r.GET("/malls/:id/", handlers.MallDetails)
 
 	n := negroni.New()
 	n.Use(&negroni.Logger{ALogger: log.StandardLogger()})
