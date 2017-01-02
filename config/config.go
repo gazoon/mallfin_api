@@ -4,32 +4,36 @@ import (
 	"encoding/json"
 	"io/ioutil"
 
+	"flag"
+
 	log "github.com/Sirupsen/logrus"
 )
 
 var (
-	conf *config
+	config    *Config
+	moduleLog = log.WithField("location", "config")
 )
 
-func checkInitialization() {
-	if conf == nil {
-		log.WithField("location", "config").Panic("Config has not initialized yet")
+func GetConfig() *Config {
+	if config == nil {
+		moduleLog.Panic("Config has not initialized yet")
 	}
+	return config
 }
 func Postgres() *PostgresSettings {
-	checkInitialization()
+	conf := GetConfig()
 	return conf.Postgres
 }
 func Redis() *RedisSettings {
-	checkInitialization()
+	conf := GetConfig()
 	return conf.Redis
 }
 func Debug() bool {
-	checkInitialization()
+	conf := GetConfig()
 	return conf.Debug
 }
 func Port() int {
-	checkInitialization()
+	conf := GetConfig()
 	return conf.Port
 }
 
@@ -46,21 +50,31 @@ type RedisSettings struct {
 	Password string `json:"password"`
 	DB       int    `json:"db"`
 }
-type config struct {
+type Config struct {
 	Debug    bool              `json:"debug"`
 	Port     int               `json:"port"`
 	Postgres *PostgresSettings `json:"postgres"`
 	Redis    *RedisSettings    `json:"redis"`
 }
 
-func Initialization(path string) {
+func getConfigPath() string {
+	var configPath string
+	flag.StringVar(&configPath, "conf", "", "Path to json config file.")
+	flag.Parse()
+	if configPath == "" {
+		log.Panic("Cannot start without path to config")
+	}
+	return configPath
+}
+func Initialization() {
+	path := getConfigPath()
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
-		log.WithFields(log.Fields{"location": "config", "config_path": path}).Panicf("Cannot read config: %s", err)
+		moduleLog.WithField("config_path", path).Panicf("Cannot read config: %s", err)
 	}
-	conf = &config{}
-	err = json.Unmarshal(data, conf)
+	config = &Config{}
+	err = json.Unmarshal(data, config)
 	if err != nil {
-		log.WithFields(log.Fields{"location": "config"}).Panicf("Cannot parse config: %s", err)
+		moduleLog.Panicf("Cannot parse config: %s", err)
 	}
 }

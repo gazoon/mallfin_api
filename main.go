@@ -1,17 +1,18 @@
 package main
 
 import (
-	"flag"
 	"fmt"
-	"github.com/mholt/binding"
 	"mallfin_api/config"
 	"mallfin_api/db"
 	"mallfin_api/redisdb"
 	"net/http"
 
+	"github.com/mholt/binding"
+
 	"runtime/debug"
 
 	"encoding/json"
+
 	log "github.com/Sirupsen/logrus"
 	"github.com/gazoon/httprouter"
 	"github.com/urfave/negroni"
@@ -62,16 +63,9 @@ func recoveryMiddleware(w http.ResponseWriter, r *http.Request, next http.Handle
 }
 
 func main() {
-	//log.SetFormatter(&log.JSONFormatter{})
 	mainLogger := log.WithField("location", "main")
-	var configPath string
-	flag.StringVar(&configPath, "conf", "", "Path to json config file.")
-	flag.Parse()
 
-	if configPath == "" {
-		mainLogger.Panic("Cannot start without path to config")
-	}
-	config.Initialization(configPath)
+	config.Initialization()
 
 	redisdb.Initialization()
 	defer redisdb.Close()

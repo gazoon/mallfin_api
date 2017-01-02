@@ -8,6 +8,9 @@ import (
 	"math/rand"
 
 	"github.com/kataras/go-errors"
+	"reflect"
+	"runtime"
+	"strings"
 )
 
 const (
@@ -69,4 +72,29 @@ func (d *DistributedMutex) Unlock() error {
 	err := redisConn.Eval(UNLOCK_SCRIPT, []string{d.Resource}, d.mutexId).Err()
 	d.mutexId = ""
 	return err
+}
+
+func FuncFullName(f interface{}) string {
+	return runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name()
+}
+func CurrentFuncFullName() string {
+	pc, _, _, _ := runtime.Caller(1)
+	return runtime.FuncForPC(pc).Name()
+}
+func FuncName(f interface{}) string {
+	fullName := FuncFullName(f)
+	return funcNameFromFullName(fullName)
+}
+func CurrentFuncName() string {
+	pc, _, _, _ := runtime.Caller(1)
+	fullName := runtime.FuncForPC(pc).Name()
+	return funcNameFromFullName(fullName)
+}
+func funcNameFromFullName(fullName string) string {
+	fullNameParts := strings.Split(fullName, ".")
+	name := fullNameParts[len(fullNameParts)-1]
+	if name == "" {
+		name = fullName
+	}
+	return name
 }
