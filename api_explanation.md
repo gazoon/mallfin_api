@@ -10,6 +10,8 @@
 
     city [integer] - city id
 
+    subway_station [integer] - subway station id
+
     query [string] - text query to search
 
     ids [list] - list of specific mall ids
@@ -130,7 +132,10 @@
     "large": "https://storage.domain.com/path/to/large/logo.png",
     "small": "https://storage.domain.com/path/to/small/logo.png"
   },
-  "subway_station": "Кантимировская",
+  "subway_station": {
+    "id": 228,
+    "name": "Кантимировская"
+  },
   "day_and_night": false,
   "working_hours": [
     {
