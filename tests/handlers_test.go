@@ -1,11 +1,13 @@
 package mallfin_api
 
 import (
-	"fmt"
+	"mallfin_api/db"
 	"testing"
 )
 
-func TestA(t *testing.T) {
-	fmt.Println("111")
-	fmt.Println("1112")
+func TestNonExistentMallDetails(t *testing.T) {
+	db.FlushDB()
+}
+func TestOkMallDetails(t *testing.T) {
+	db.FlushDB()
 }

@@ -25,6 +25,13 @@ type Mall struct {
 	CityID      int      `json:"-"`
 }
 
+func DeleteAllMalls() {
+	conn := db.GetConnection()
+	_, err := conn.Exec(`TRUNCATE mall CASCADE`)
+	if err != nil {
+		moduleLog.Panicf("Cannot delete malls: %s", err)
+	}
+}
 func CreateMall(mall *Mall) *Mall {
 	conn := db.GetConnection()
 	err := conn.QueryRow(`

@@ -4,12 +4,12 @@ import (
 	"database/sql"
 	"fmt"
 	"mallfin_api/config"
-
 	"os/exec"
 	"strconv"
 
 	log "github.com/Sirupsen/logrus"
 	_ "github.com/lib/pq"
+	"strings"
 )
 
 var (
@@ -27,6 +27,43 @@ func createNewDBConnection(dbName string) *sql.DB {
 		moduleLog.WithFields(log.Fields{"conf": dbConf, "db": dbName}).Panicf("Cannot connect to postgresql: %s", err)
 	}
 	return conn
+}
+func getAllTables() []string {
+	const POSTGIS_TABLE_PREFIX = "spatial"
+	conn := GetConnection()
+	rows, err := conn.Query(`
+	SELECT tablename
+	FROM pg_tables
+	WHERE schemaname = 'public'`)
+	if err != nil {
+		moduleLog.Panic(err)
+	}
+	defer rows.Close()
+	tables := []string{}
+	for rows.Next() {
+		var tableName string
+		err := rows.Scan(&tableName)
+		if err != nil {
+			moduleLog.Panic(err)
+		}
+		if !strings.HasPrefix(tableName, POSTGIS_TABLE_PREFIX) {
+			tables = append(tables, tableName)
+		}
+	}
+	err = rows.Err()
+	if err != nil {
+		moduleLog.Panic(err)
+	}
+	return tables
+}
+func FlushDB() {
+	conn := GetConnection()
+	tables := getAllTables()
+	_, err := conn.Exec(fmt.Sprintf(`
+	TRUNCATE %s CASCADE`, strings.Join(tables, ",")))
+	if err != nil {
+		moduleLog.Panicf("Cannot drop tables: %", err)
+	}
 }
 func dbDump() []byte {
 	dbConf := config.Postgres()
@@ -63,17 +100,17 @@ func InitializationForTests() {
 	dump := dbDump()
 	dbConf := config.Postgres()
 	testDBName := fmt.Sprintf("%s_test", dbConf.Name)
-	conn := createNewDBConnection(dbConf.Name)
-	_, err := conn.Exec(fmt.Sprintf(`DROP DATABASE IF EXISTS %s`, testDBName))
+	tmpConn := createNewDBConnection(dbConf.Name)
+	_, err := tmpConn.Exec(fmt.Sprintf(`DROP DATABASE IF EXISTS %s`, testDBName))
 	if err != nil {
 		moduleLog.Panicf("Cannot drop previous test db: %s", err)
 	}
-	_, err = conn.Exec(fmt.Sprintf(`CREATE DATABASE %s OWNER %s`, testDBName, dbConf.User))
+	_, err = tmpConn.Exec(fmt.Sprintf(`CREATE DATABASE %s OWNER %s`, testDBName, dbConf.User))
 	if err != nil {
-		moduleLog.Panicf("Cannot crate test db: %s", err)
+		moduleLog.Panicf("Cannot create test db: %s", err)
 	}
-	conn.Close()
-	conn = createNewDBConnection(testDBName)
+	tmpConn.Close()
+	conn := createNewDBConnection(testDBName)
 	_, err = conn.Exec(string(dump))
 	if err != nil {
 		moduleLog.Panicf("Cannot load dump: %s", err)
