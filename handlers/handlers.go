@@ -7,6 +7,7 @@ import (
 	"github.com/gazoon/binding"
 	"github.com/gazoon/httprouter"
 	"mallfin_api/db/models"
+	"mallfin_api/serializers"
 )
 
 type mallsListForm struct {
@@ -53,5 +54,6 @@ func MallDetails(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		errorResponse(w, MALL_NOT_FOUND, "Mall with such id does not exists", http.StatusNotFound)
 		return
 	}
-	response(w, mall)
+	mallSerialized := serializers.SerializeMallDetails(mall)
+	response(w, mallSerialized)
 }

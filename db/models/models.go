@@ -13,40 +13,29 @@ var (
 	moduleLog = log.WithField("location", "models")
 )
 
-type Location struct {
-	Lat float64 `json:"lat"`
-	Lon float64 `json:"lon"`
-}
-type Logo struct {
-	Large string `json:"large"`
-	Small string `json:"small"`
-}
-type SubwayStation struct {
-	ID   int    `json:"id"`
-	Name string `json:"name"`
-}
-type WeekTime struct {
-	Time time.Time `json:"time"`
-	Day  int       `json:"day"`
-}
 type WorkPeriod struct {
-	Open  WeekTime `json:"opening"`
-	Close WeekTime `json:"closing"`
+	OpenTime  time.Time
+	OpenDay   int
+	CloseTime time.Time
+	CloseDay  int
 }
 type Mall struct {
-	ID            int            `json:"id"`
-	Name          string         `json:"name"`
-	Phone         string         `json:"phone"`
-	Address       string         `json:"address"`
-	Logo          Logo           `json:"logo"`
-	Location      Location       `json:"location"`
-	SubwayStation *SubwayStation `json:"subway_station"`
+	ID          int
+	Name        string
+	Phone       string
+	Address     string
+	LogoLarge   string
+	LogoSmall   string
+	LocationLat float64
+	LocationLon float64
+	SubwayID    *int
+	SubwayName  *string
 }
 type MallDetails struct {
 	*Mall
-	Site         string        `json:"site"`
-	DayAndNight  bool          `json:"day_and_night"`
-	WorkingHours []*WorkPeriod `json:"working_hours"`
+	Site         string
+	DayAndNight  bool
+	WorkingHours []*WorkPeriod
 }
 
 func DeleteAllMalls() {
@@ -72,8 +61,6 @@ func DeleteAllMalls() {
 func GetMallDetails(mallID int) *MallDetails {
 	conn := db.GetConnection()
 	mall := MallDetails{Mall: new(Mall)}
-	var subwayID *int
-	var subwayName *string
 	err := conn.QueryRow(`
 	SELECT
 	  m.id,
@@ -90,15 +77,12 @@ func GetMallDetails(mallID int) *MallDetails {
 	  m.day_and_night
 	FROM mall m
 	  LEFT JOIN subway_station ss ON m.subway_station_id = ss.id
-	WHERE m.id = $1`, mallID).Scan(&mall.ID, &mall.Name, &mall.Phone, &mall.Address, &mall.Logo.Small, &mall.Logo.Large,
-		&mall.Location.Lat, &mall.Location.Lon, &subwayID, &subwayName, &mall.Site, &mall.DayAndNight)
+	WHERE m.id = $1`, mallID).Scan(&mall.ID, &mall.Name, &mall.Phone, &mall.Address, &mall.LogoSmall, &mall.LogoLarge,
+		&mall.LocationLat, &mall.LocationLon, &mall.SubwayID, &mall.SubwayName, &mall.Site, &mall.DayAndNight)
 	if err == sql.ErrNoRows {
 		return nil
 	} else if err != nil {
 		moduleLog.WithField("mall", mallID).Panicf("Cannot get mall by ID: %s", err)
-	}
-	if subwayID != nil && subwayName != nil {
-		mall.SubwayStation = &SubwayStation{Name: *subwayName, ID: *subwayID}
 	}
 	if !mall.DayAndNight {
 		rows, err := conn.Query(`
@@ -115,7 +99,7 @@ func GetMallDetails(mallID int) *MallDetails {
 		defer rows.Close()
 		for rows.Next() {
 			period := WorkPeriod{}
-			err = rows.Scan(&period.Open.Day, &period.Open.Time, &period.Close.Day, &period.Close.Time)
+			err = rows.Scan(&period.OpenDay, &period.OpenTime, &period.CloseDay, &period.CloseTime)
 			if err != nil {
 				moduleLog.WithField("mall", mall.ID).Panicf("Error during scaning working hours: %s", err)
 			}
