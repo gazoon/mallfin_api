@@ -42,6 +42,8 @@
 
 * **Query Params:**
 
+    city [integer] - city id
+
     mall [integer] - mall id, shops in such mall
 
     category [integer] - category id
@@ -121,9 +123,9 @@
 {
   "id": 228,
   "name": "Some name",
-  "site": "http://domain.com/",
-  "phone": "+79250741413",
-  "address": "ул. Перерва, 45, Москва, Россия, 10934",
+  "site": "http://domain.com/", //details
+  "phone": "+79250741413", //details
+  "address": "ул. Перерва, 45, Москва, Россия, 10934", //details
   "location": {
     "lat": 22.33334,
     "lon": 33.35533
@@ -132,11 +134,11 @@
     "large": "https://storage.domain.com/path/to/large/logo.png",
     "small": "https://storage.domain.com/path/to/small/logo.png"
   },
-  "subway_station": {
+  "subway_station": { //details
     "id": 228,
     "name": "Кантимировская"
   },
-  "day_and_night": false,
+  "day_and_night": false, //details
   "working_hours": [
     {
       "closing": {

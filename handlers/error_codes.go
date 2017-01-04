@@ -1,6 +1,0 @@
-package handlers
-
-const (
-	INVALID_REQUEST_DATA = "INVALID_REQUEST_DATA"
-	MALL_NOT_FOUND       = "MALL_NOT_FOUND"
-)
