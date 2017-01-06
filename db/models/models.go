@@ -23,18 +23,19 @@ type Mall struct {
 	ID          int
 	Name        string
 	Phone       string
-	Address     string
 	LogoLarge   string
 	LogoSmall   string
 	LocationLat float64
 	LocationLon float64
-	SubwayID    *int
-	SubwayName  *string
+	ShopsCount  int
 }
 type MallDetails struct {
 	*Mall
+	Address      string
 	Site         string
 	DayAndNight  bool
+	SubwayID     *int
+	SubwayName   *string
 	WorkingHours []*WorkPeriod
 }
 
@@ -113,42 +114,151 @@ func GetMallDetails(mallID int) *MallDetails {
 	return &mall
 }
 
-//func GetMallsByIds(mallIDs []int) []*Mall {
-//	malls := []*Mall{}
-//	if len(mallIDs) == 0 {
-//		return malls
-//	}
-//	conn:=db.GetConnection()
-//	rows,err:=conn.Query(`
-//	SELECT
-//	  m.id,
-//	  m.name,
-//	  m.phone,
-//	  m.address,
-//	  m.logo_small,
-//	  m.logo_large,
-//	  ST_X(m.location),
-//	  ST_Y(m.location),
-//	  ss.id,
-//	  ss.name
-//	FROM mall m LEFT JOIN subway_station ss ON m.subway_station_id = ss.id
-//	WHERE m.id IN $1`,mallIDs)
-//	if err!= nil {
-//		moduleLog.Panicf("Cannot get malls by ids: %s",err)
-//	}
-//	defer rows.Close()
-//	for rows.Next() {
-//		mall:=Mall{}
-//		err = rows.Scan(&mall.ID,mall.Name)
-//		if err != nil {
-//			moduleLog.WithField("mall", mall.ID).Panicf("Error during scaning working hours: %s", err)
-//		}
-//		mall.WorkingHours = append(mall.WorkingHours, &period)
-//	}
-//	err = rows.Err()
-//	if err != nil {
-//		moduleLog.WithField("mall", mall.ID).Panicf("Error after scaning working hours: %s", err)
-//	}
-//
-//	return malls
-//}
+func GetMallsByIds(mallIDs []int) []*Mall {
+	if len(mallIDs) == 0 {
+		return []*Mall{}
+	}
+	malls := mallsQuery(`
+	SELECT
+	  m.id,
+	  m.name,
+	  m.phone,
+	  m.logo_small,
+	  m.logo_large,
+	  ST_X(m.location)  location_lat,
+	  ST_Y(m.location)  location_lon,
+	  count(ms.shop_id) shops_count
+	FROM mall m
+	  JOIN mall_shop ms ON m.id = ms.mall_id
+	WHERE m.id IN $1
+	GROUP BY m.id
+	`, mallIDs)
+	return malls
+}
+func GetMallsBySubwayStation(subwayStationID int) []*Mall {
+	malls := mallsQuery(`
+	SELECT
+	  m.id,
+	  m.name,
+	  m.phone,
+	  m.logo_small,
+	  m.logo_large,
+	  ST_X(m.location)  location_lat,
+	  ST_Y(m.location)  location_lon,
+	  count(ms.shop_id) shops_count
+	FROM mall m
+	  LEFT JOIN subway_station ss ON m.subway_station_id = ss.id
+	  JOIN mall_shop ms ON m.id = ms.mall_id
+	WHERE ss.id = $1
+	GROUP BY m.id
+	`, subwayStationID)
+	return malls
+}
+func GetMallsByShop(shopID int) []*Mall {
+	malls := mallsQuery(`
+	SELECT
+	  m.id,
+	  m.name,
+	  m.phone,
+	  m.logo_small,
+	  m.logo_large,
+	  ST_X(m.location)  location_lat,
+	  ST_Y(m.location)  location_lon,
+	  count(ms.shop_id) shops_count
+	FROM mall m
+	  JOIN (SELECT mall_id
+			FROM mall_shop
+			WHERE shop_id = $1) q ON m.id = q.mall_id
+	  JOIN mall_shop ms ON m.id = ms.mall_id
+	GROUP BY m.id
+	`, shopID)
+	return malls
+}
+func GetMallsByShopAndCity(shopID, cityID int) []*Mall {
+	malls := mallsQuery(`
+	SELECT
+	  m.id,
+	  m.name,
+	  m.phone,
+	  m.logo_small,
+	  m.logo_large,
+	  ST_X(m.location)  location_lat,
+	  ST_Y(m.location)  location_lon,
+	  count(ms.shop_id) shops_count
+	FROM mall m
+	  JOIN (SELECT mall_id
+			FROM mall_shop
+			WHERE shop_id = $1) q ON m.id = q.mall_id
+	  JOIN mall_shop ms ON m.id = ms.mall_id
+	WHERE m.city_id = $2
+	GROUP BY m.id
+	`, shopID, cityID)
+	return malls
+}
+func GetMallsByName(name string) []*Mall {
+	malls := mallsQuery(`
+	SELECT
+	  m.id,
+	  m.name,
+	  m.phone,
+	  m.address,
+	  m.logo_small,
+	  m.logo_large,
+	  ST_X(m.location)  location_lat,
+	  ST_Y(m.location)  location_lon,
+	  count(ms.shop_id) shops_count
+	FROM mall m
+	  JOIN (SELECT DISTINCT ON (mn.mall_id) mn.mall_id
+			FROM mall_name mn
+			WHERE mn.name ILIKE '%' || $1 || '%'
+			ORDER BY mn.mall_id) mn ON m.id = mn.mall_id
+	  JOIN mall_shop ms ON m.id = ms.mall_id
+	GROUP BY m.id
+	`, name)
+	return malls
+}
+func GetMallsByNameAndCity(name string, cityID int) []*Mall {
+	malls := mallsQuery(`
+	SELECT
+	  m.id,
+	  m.name,
+	  m.phone,
+	  m.address,
+	  m.logo_small,
+	  m.logo_large,
+	  ST_X(m.location)  location_lat,
+	  ST_Y(m.location)  location_lon,
+	  count(ms.shop_id) shops_count
+	FROM mall m
+	  JOIN (SELECT DISTINCT ON (mn.mall_id) mn.mall_id
+			FROM mall_name mn
+			WHERE mn.name ILIKE '%' || $1 || '%'
+			ORDER BY mn.mall_id) mn ON m.id = mn.mall_id
+	  JOIN mall_shop ms ON m.id = ms.mall_id
+	WHERE m.city_id = $2
+	GROUP BY m.id
+	`, name, cityID)
+	return malls
+}
+func mallsQuery(query string, args ...interface{}) []*Mall {
+	conn := db.GetConnection()
+	rows, err := conn.Query(query, args...)
+	if err != nil {
+		moduleLog.Panicf("Cannot get malls rows: %s", err)
+	}
+	defer rows.Close()
+	malls := []*Mall{}
+	for rows.Next() {
+		m := Mall{}
+		err = rows.Scan(&m.ID, &m.Name, &m.Phone, &m.LogoSmall, &m.LogoLarge, &m.LocationLat, &m.LocationLon, &m.ShopsCount)
+		if err != nil {
+			moduleLog.Panicf("Error during mall row: %s", err)
+		}
+		malls = append(malls, m)
+	}
+	err = rows.Err()
+	if err != nil {
+		moduleLog.Panicf("Error after scaning malls rows: %s", err)
+	}
+	return malls
+}
