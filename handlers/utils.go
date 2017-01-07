@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	log "github.com/Sirupsen/logrus"
+	"reflect"
 )
 
 const (
@@ -18,16 +19,21 @@ const (
 const DOES_NOT_EXISTS_MSG = "%s with such id does not exists."
 
 type JSONObject map[string]interface{}
-type ErrorObject struct {
+type ErrorData struct {
 	Code    string `json:"code"`
 	Details string `json:"details"`
 	Status  int    `json:"status_code"`
 }
 type ErrorResponse struct {
-	Error *ErrorObject `json:"error"`
+	Error *ErrorData `json:"error"`
 }
 type SuccessResponse struct {
 	Data interface{} `json:"data"`
+}
+type ListData struct {
+	Count      int         `json:"count"`
+	TotalCount int         `json:"total_count"`
+	Results    interface{} `json:"results"`
 }
 
 func writeJSON(w http.ResponseWriter, resp interface{}, status int) {
@@ -40,11 +46,24 @@ func writeJSON(w http.ResponseWriter, resp interface{}, status int) {
 	w.Write(b)
 }
 func errorResponse(w http.ResponseWriter, errorCode, details string, status int) {
-	errObj := ErrorObject{Code: errorCode, Details: details, Status: status}
+	errObj := ErrorData{Code: errorCode, Details: details, Status: status}
 	resp := ErrorResponse{Error: &errObj}
 	writeJSON(w, resp, status)
 }
 func response(w http.ResponseWriter, data interface{}) {
 	resp := SuccessResponse{Data: data}
 	writeJSON(w, resp, http.StatusOK)
+}
+func objectResponse(w http.ResponseWriter, object interface{}) {
+	data := object
+	response(w, data)
+}
+func listResponse(w http.ResponseWriter, resultsList interface{}, totalCount int) {
+	log.Info()
+	data := &ListData{
+		TotalCount: totalCount,
+		Count:      reflect.ValueOf(resultsList).Len(),
+		Results:    resultsList,
+	}
+	response(w, data)
 }

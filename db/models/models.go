@@ -7,6 +7,7 @@ import (
 	"time"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/lib/pq"
 )
 
 var (
@@ -35,9 +36,7 @@ type Mall struct {
 	LocationLat float64
 	LocationLon float64
 	ShopsCount  int
-}
-type MallDetails struct {
-	*Mall
+	// details:
 	Address      string
 	Site         string
 	DayAndNight  bool
@@ -120,9 +119,9 @@ func DeleteAllMalls() {
 //	return mall
 //
 //}
-func GetMallDetails(mallID int) *MallDetails {
+func GetMallDetails(mallID int) *Mall {
 	conn := db.GetConnection()
-	mall := MallDetails{Mall: new(Mall)}
+	mall := Mall{}
 	err := conn.QueryRow(`
 	SELECT
 	  m.id,
@@ -174,10 +173,62 @@ func GetMallDetails(mallID int) *MallDetails {
 	}
 	return &mall
 }
-
-func GetMallsByIds(mallIDs []int) []*Mall {
+func countQuery(query string, args ...interface{}) int {
+	var count int
+	conn := db.GetConnection()
+	err := conn.QueryRow(query, args...).Scan(&count)
+	if err != nil {
+		moduleLog.Panicf("Cannot do count query: %s", err)
+	}
+	return count
+}
+func GetMalls(cityID *int, sortKey *string, limit, offset *uint) ([]*Mall, int) {
+	var malls []*Mall
+	var totalCount int
+	if cityID != nil {
+		malls = mallsQuery(`
+		SELECT
+		  m.id,
+		  m.name,
+		  m.phone,
+		  m.logo_small,
+		  m.logo_large,
+		  ST_X(m.location)  location_lat,
+		  ST_Y(m.location)  location_lon,
+		  m.shops_count
+		FROM mall m
+		WHERE m.city_id = $1
+		`, *cityID)
+		totalCount = countQuery(`
+		SELECT
+		  count(*) total_count
+		FROM mall m
+		WHERE m.city_id = $1
+		`, *cityID)
+	} else {
+		malls = mallsQuery(`
+		SELECT
+		  m.id,
+		  m.name,
+		  m.phone,
+		  m.logo_small,
+		  m.logo_large,
+		  ST_X(m.location)  location_lat,
+		  ST_Y(m.location)  location_lon,
+		  m.shops_count
+		FROM mall m
+		`)
+		totalCount = countQuery(`
+		SELECT
+		  count(*) total_count
+		FROM mall m
+		`)
+	}
+	return malls, totalCount
+}
+func GetMallsByIds(mallIDs []int, sortKey *string, limit, offset *uint) ([]*Mall, int) {
 	if len(mallIDs) == 0 {
-		return []*Mall{}
+		return []*Mall{}, 0
 	}
 	malls := mallsQuery(`
 	SELECT
@@ -188,15 +239,19 @@ func GetMallsByIds(mallIDs []int) []*Mall {
 	  m.logo_large,
 	  ST_X(m.location)  location_lat,
 	  ST_Y(m.location)  location_lon,
-	  count(ms.shop_id) shops_count
+	  m.shops_count
 	FROM mall m
-	  JOIN mall_shop ms ON m.id = ms.mall_id
-	WHERE m.id IN $1
-	GROUP BY m.id
-	`, mallIDs)
-	return malls
+	WHERE m.id = ANY($1)
+	`, pq.Array(mallIDs))
+	totalCount := countQuery(`
+	SELECT
+	  count(*) total_count
+	FROM mall m
+	WHERE m.id = ANY($1)
+	`, pq.Array(mallIDs))
+	return malls, totalCount
 }
-func GetMallsBySubwayStation(subwayStationID int) []*Mall {
+func GetMallsBySubwayStation(subwayStationID int, sortKey *string, limit, offset *uint) ([]*Mall, int) {
 	malls := mallsQuery(`
 	SELECT
 	  m.id,
@@ -206,100 +261,119 @@ func GetMallsBySubwayStation(subwayStationID int) []*Mall {
 	  m.logo_large,
 	  ST_X(m.location)  location_lat,
 	  ST_Y(m.location)  location_lon,
-	  count(ms.shop_id) shops_count
+	  m.shops_count
 	FROM mall m
 	  LEFT JOIN subway_station ss ON m.subway_station_id = ss.id
-	  JOIN mall_shop ms ON m.id = ms.mall_id
 	WHERE ss.id = $1
-	GROUP BY m.id
 	`, subwayStationID)
-	return malls
-}
-func GetMallsByShop(shopID int) []*Mall {
-	malls := mallsQuery(`
+	totalCount := countQuery(`
 	SELECT
-	  m.id,
-	  m.name,
-	  m.phone,
-	  m.logo_small,
-	  m.logo_large,
-	  ST_X(m.location)  location_lat,
-	  ST_Y(m.location)  location_lon,
-	  count(ms.shop_id) shops_count
+	  count(*) total_count
 	FROM mall m
-	  JOIN (SELECT mall_id
-			FROM mall_shop
-			WHERE shop_id = $1) q ON m.id = q.mall_id
-	  JOIN mall_shop ms ON m.id = ms.mall_id
-	GROUP BY m.id
-	`, shopID)
-	return malls
+	  LEFT JOIN subway_station ss ON m.subway_station_id = ss.id
+	WHERE ss.id = $1
+	`, subwayStationID)
+	return malls, totalCount
 }
-func GetMallsByShopAndCity(shopID, cityID int) []*Mall {
-	malls := mallsQuery(`
-	SELECT
-	  m.id,
-	  m.name,
-	  m.phone,
-	  m.logo_small,
-	  m.logo_large,
-	  ST_X(m.location)  location_lat,
-	  ST_Y(m.location)  location_lon,
-	  count(ms.shop_id) shops_count
-	FROM mall m
-	  JOIN (SELECT mall_id
-			FROM mall_shop
-			WHERE shop_id = $1) q ON m.id = q.mall_id
-	  JOIN mall_shop ms ON m.id = ms.mall_id
-	WHERE m.city_id = $2
-	GROUP BY m.id
-	`, shopID, cityID)
-	return malls
+func GetMallsByShop(shopID int, cityID *int, sortKey *string, limit, offset *uint) ([]*Mall, int) {
+	var malls []*Mall
+	var totalCount int
+	if cityID != nil {
+		malls = mallsQuery(`
+		SELECT
+		  m.id,
+		  m.name,
+		  m.phone,
+		  m.logo_small,
+		  m.logo_large,
+		  ST_X(m.location) location_lat,
+		  ST_Y(m.location) location_lon,
+		  m.shops_count
+		FROM mall m
+		  JOIN mall_shop ms ON m.id = ms.mall_id
+		WHERE ms.shop_id = $1 AND m.city_id = $2
+		`, shopID, *cityID)
+		totalCount = countQuery(`
+		SELECT
+		  count(*) total_count
+		FROM mall m
+		  JOIN mall_shop ms ON m.id = ms.mall_id
+		WHERE ms.shop_id = $1 AND m.city_id = $2
+		`, shopID, *cityID)
+	} else {
+		malls = mallsQuery(`
+		SELECT
+		  m.id,
+		  m.name,
+		  m.phone,
+		  m.logo_small,
+		  m.logo_large,
+		  ST_X(m.location) location_lat,
+		  ST_Y(m.location) location_lon,
+		  m.shops_count
+		FROM mall m
+		  JOIN mall_shop ms ON m.id = ms.mall_id
+		WHERE ms.shop_id = $1
+		`, shopID)
+		totalCount = countQuery(`
+		SELECT
+		  count(*) total_count
+		FROM mall m
+		  JOIN mall_shop ms ON m.id = ms.mall_id
+		WHERE ms.shop_id = $1
+		`, shopID)
+	}
+	return malls, totalCount
 }
-func GetMallsByName(name string) []*Mall {
-	malls := mallsQuery(`
-	SELECT
-	  m.id,
-	  m.name,
-	  m.phone,
-	  m.address,
-	  m.logo_small,
-	  m.logo_large,
-	  ST_X(m.location)  location_lat,
-	  ST_Y(m.location)  location_lon,
-	  count(ms.shop_id) shops_count
-	FROM mall m
-	  JOIN (SELECT DISTINCT ON (mn.mall_id) mn.mall_id
-			FROM mall_name mn
-			WHERE mn.name ILIKE '%' || $1 || '%'
-			ORDER BY mn.mall_id) mn ON m.id = mn.mall_id
-	  JOIN mall_shop ms ON m.id = ms.mall_id
-	GROUP BY m.id
-	`, name)
-	return malls
-}
-func GetMallsByNameAndCity(name string, cityID int) []*Mall {
-	malls := mallsQuery(`
-	SELECT
-	  m.id,
-	  m.name,
-	  m.phone,
-	  m.address,
-	  m.logo_small,
-	  m.logo_large,
-	  ST_X(m.location)  location_lat,
-	  ST_Y(m.location)  location_lon,
-	  count(ms.shop_id) shops_count
-	FROM mall m
-	  JOIN (SELECT DISTINCT ON (mn.mall_id) mn.mall_id
-			FROM mall_name mn
-			WHERE mn.name ILIKE '%' || $1 || '%'
-			ORDER BY mn.mall_id) mn ON m.id = mn.mall_id
-	  JOIN mall_shop ms ON m.id = ms.mall_id
-	WHERE m.city_id = $2
-	GROUP BY m.id
-	`, name, cityID)
-	return malls
+func GetMallsByName(name string, cityID *int, sortKey *string, limit, offset *uint) ([]*Mall, int) {
+	var malls []*Mall
+	var totalCount int
+	if cityID != nil {
+		malls = mallsQuery(`
+		SELECT DISTINCT ON (m.id)
+		  m.id,
+		  m.name,
+		  m.phone,
+		  m.logo_small,
+		  m.logo_large,
+		  ST_X(m.location) location_lat,
+		  ST_Y(m.location) location_lon,
+		  m.shops_count
+		FROM mall m
+		  JOIN mall_name mn ON m.id = mn.mall_id
+		WHERE mn.name ILIKE '%' || $1 || '%' AND m.city_id = $2
+		`, name, *cityID)
+		totalCount = countQuery(`
+		SELECT
+		  count(DISTINCT m.id) total_count
+		FROM mall m
+		  JOIN mall_name mn ON m.id = mn.mall_id
+		WHERE mn.name ILIKE '%' || $1 || '%' AND m.city_id = $2
+		`, name, *cityID)
+	} else {
+		malls = mallsQuery(`
+		SELECT DISTINCT ON (m.id)
+		  m.id,
+		  m.name,
+		  m.phone,
+		  m.logo_small,
+		  m.logo_large,
+		  ST_X(m.location) location_lat,
+		  ST_Y(m.location) location_lon,
+		  m.shops_count
+		FROM mall m
+		  JOIN mall_name mn ON m.id = mn.mall_id
+		WHERE mn.name ILIKE '%' || $1 || '%'
+		`, name)
+		totalCount = countQuery(`
+		SELECT
+		  count(DISTINCT m.id) total_count
+		FROM mall m
+		  JOIN mall_name mn ON m.id = mn.mall_id
+		WHERE mn.name ILIKE '%' || $1 || '%'
+		`, name)
+	}
+	return malls, totalCount
 }
 func mallsQuery(query string, args ...interface{}) []*Mall {
 	conn := db.GetConnection()

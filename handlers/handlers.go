@@ -56,36 +56,43 @@ func MallsList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		errorResponse(w, INVALID_REQUEST_DATA, errs.Error(), http.StatusBadRequest)
 		return
 	}
-	//var malls []*models.Mall
-	//if formData.Ids != nil {
-	//	mallIDs := formData.Ids
-	//	malls = models.GetMallsByIds(mallIDs)
-	//} else if formData.SubwayStation != nil {
-	//	subwayStationID := *formData.SubwayStation
-	//	if !models.IsSubwayStationExists(subwayStationID) {
-	//		errorResponse(w, SUBWAY_STATION_NOT_FOUND, "Subway station with such id does not exists.", http.StatusNotFound)
-	//		return
-	//	}
-	//	malls = models.GetMallsBySubwayStation(subwayStationID)
-	//} else if formData.Query != nil {
-	//	name := *formData.Query
-	//	if formData.City != nil {
-	//		cityID := *formData.City
-	//		malls = models.GetMallsByNameAndCity(name, cityID)
-	//	} else {
-	//		malls = models.GetMallsByName(name)
-	//	}
-	//} else if formData.Shop != nil {
-	//	shopID := *formData.Shop
-	//	if formData.City != nil {
-	//		cityID := *formData.City
-	//		malls = models.GetMallsByShopAndCity(shopID, cityID)
-	//	} else {
-	//		malls = models.GetMallsByShop(shopID)
-	//	}
-	//}
-	log.Infof("%+v", formData)
-	log.Info(formData.Ids == nil)
+	sortKey := formData.Sort
+	limit := formData.Limit
+	offset := formData.Offset
+	cityID := formData.City
+	if cityID != nil {
+		if !models.IsCityExists(*cityID) {
+			errorResponse(w, CITY_NOT_FOUND, "City with such id does not exists.", http.StatusNotFound)
+			return
+		}
+	}
+	var malls []*models.Mall
+	var totalCount int
+	if formData.Ids != nil {
+		mallIDs := formData.Ids
+		malls, totalCount = models.GetMallsByIds(mallIDs, sortKey, limit, offset)
+	} else if formData.SubwayStation != nil {
+		subwayStationID := *formData.SubwayStation
+		if !models.IsSubwayStationExists(subwayStationID) {
+			errorResponse(w, SUBWAY_STATION_NOT_FOUND, "Subway station with such id does not exists.", http.StatusNotFound)
+			return
+		}
+		malls, totalCount = models.GetMallsBySubwayStation(subwayStationID, sortKey, limit, offset)
+	} else if formData.Query != nil {
+		name := *formData.Query
+		malls, totalCount = models.GetMallsByName(name, cityID, sortKey, limit, offset)
+	} else if formData.Shop != nil {
+		shopID := *formData.Shop
+		if !models.IsShopExists(shopID) {
+			errorResponse(w, SHOP_NOT_FOUND, "Shop with such id does not exists.", http.StatusNotFound)
+			return
+		}
+		malls, totalCount = models.GetMallsByShop(shopID, cityID, sortKey, limit, offset)
+	} else {
+		malls, totalCount = models.GetMalls(cityID, sortKey, limit, offset)
+	}
+	mallsSerialized := serializers.SerializeMalls(malls)
+	listResponse(w, mallsSerialized, totalCount)
 	log.Info("success")
 }
 func MallDetails(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
@@ -99,6 +106,6 @@ func MallDetails(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		errorResponse(w, MALL_NOT_FOUND, "Mall with such id does not exists", http.StatusNotFound)
 		return
 	}
-	mallSerialized := serializers.SerializeMallDetails(mall)
-	response(w, mallSerialized)
+	mallSerialized := serializers.SerializeMall(mall)
+	objectResponse(w, mallSerialized)
 }
