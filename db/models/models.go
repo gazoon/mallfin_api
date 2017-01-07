@@ -39,6 +39,60 @@ type MallDetails struct {
 	WorkingHours []*WorkPeriod
 }
 
+func existsQuery(query string, args ...interface{}) bool {
+	var exists bool
+	conn := db.GetConnection()
+	err := conn.QueryRow(query, args...).Scan(&exists)
+	if err != nil {
+		moduleLog.Panicf("Cannot check the existence: %s", err)
+	}
+	return exists
+}
+func IsShopExists(shopID int) bool {
+	exists := existsQuery(`
+	SELECT exists(
+		SELECT *
+		FROM shop
+		WHERE id = $1)
+	`, shopID)
+	return exists
+}
+func IsMallExists(mallID int) bool {
+	exists := existsQuery(`
+	SELECT exists(
+		SELECT *
+		FROM mall
+		WHERE id = $1)
+	`, mallID)
+	return exists
+}
+func IsCityExists(cityID int) bool {
+	exists := existsQuery(`
+	SELECT exists(
+		SELECT *
+		FROM city
+		WHERE id = $1)
+	`, cityID)
+	return exists
+}
+func IsCategoryExists(categoryID int) bool {
+	exists := existsQuery(`
+	SELECT exists(
+		SELECT *
+		FROM category
+		WHERE id = $1)
+	`, categoryID)
+	return exists
+}
+func IsSubwayStationExists(subwayStationID int) bool {
+	exists := existsQuery(`
+	SELECT exists(
+		SELECT *
+		FROM subway_station
+		WHERE id = $1)
+	`, subwayStationID)
+	return exists
+}
 func DeleteAllMalls() {
 	conn := db.GetConnection()
 	_, err := conn.Exec(`TRUNCATE mall CASCADE`)
