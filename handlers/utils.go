@@ -15,6 +15,7 @@ const (
 	SHOP_NOT_FOUND           = "SHOP_NOT_FOUND"
 	CATEGORY_NOT_FOUND       = "CATEGORY_NOT_FOUND"
 )
+const DOES_NOT_EXISTS_MSG = "%s with such id does not exists."
 
 type JSONObject map[string]interface{}
 type ErrorObject struct {

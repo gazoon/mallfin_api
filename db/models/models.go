@@ -13,6 +13,13 @@ var (
 	moduleLog = log.WithField("location", "models")
 )
 
+const (
+	NAME_MALL_SORT_KEY        = "name"
+	SHOPS_COUNT_MALL_SORT_KEY = "shops_count"
+	NAME_SHOP_SORT_KEY        = "name"
+	SCORE_SHOP_SORT_KEY       = "score"
+)
+
 type WorkPeriod struct {
 	OpenTime  time.Time
 	OpenDay   int
@@ -308,7 +315,7 @@ func mallsQuery(query string, args ...interface{}) []*Mall {
 		if err != nil {
 			moduleLog.Panicf("Error during mall row: %s", err)
 		}
-		malls = append(malls, m)
+		malls = append(malls, &m)
 	}
 	err = rows.Err()
 	if err != nil {

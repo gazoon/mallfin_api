@@ -26,31 +26,26 @@ type WorkPeriod struct {
 	Closing *WeekTime `json:"closing"`
 }
 type Mall struct {
-	ID            int            `json:"id"`
-	Name          string         `json:"name"`
-	Phone         string         `json:"phone"`
-	Address       string         `json:"address"`
-	Logo          *Logo          `json:"logo"`
-	Location      *Location      `json:"location"`
-	SubwayStation *SubwayStation `json:"subway_staion"`
+	ID       int       `json:"id"`
+	Name     string    `json:"name"`
+	Phone    string    `json:"phone"`
+	Logo     *Logo     `json:"logo"`
+	Location *Location `json:"location"`
 }
 type MallDetails struct {
 	*Mall
-	Site         string        `json:"site"`
-	DayAndNight  bool          `json:"day_and_night"`
-	WorkingHours []*WorkPeriod `json:"working_hours"`
+	Address       string         `json:"address"`
+	Site          string         `json:"site"`
+	DayAndNight   bool           `json:"day_and_night"`
+	WorkingHours  []*WorkPeriod  `json:"working_hours"`
+	SubwayStation *SubwayStation `json:"subway_staion"`
 }
 
 func SerializeMall(mall *models.Mall) *Mall {
-	var subwayStation *SubwayStation
-	if mall.SubwayID != nil && mall.SubwayName != nil {
-		subwayStation = &SubwayStation{ID: *mall.SubwayID, Name: *mall.SubwayName}
-	}
 	ms := &Mall{
-		ID:      mall.ID,
-		Name:    mall.Name,
-		Phone:   mall.Phone,
-		Address: mall.Address,
+		ID:    mall.ID,
+		Name:  mall.Name,
+		Phone: mall.Phone,
 		Logo: &Logo{
 			Large: mall.LogoLarge,
 			Small: mall.LogoSmall,
@@ -59,7 +54,6 @@ func SerializeMall(mall *models.Mall) *Mall {
 			Lat: mall.LocationLat,
 			Lon: mall.LocationLon,
 		},
-		SubwayStation: subwayStation,
 	}
 	return ms
 }
@@ -77,11 +71,17 @@ func SerializeMallDetails(mallDetails *models.MallDetails) *MallDetails {
 			},
 		})
 	}
+	var subwayStation *SubwayStation
+	if mallDetails.SubwayID != nil && mallDetails.SubwayName != nil {
+		subwayStation = &SubwayStation{ID: *mallDetails.SubwayID, Name: *mallDetails.SubwayName}
+	}
 	mds := &MallDetails{
-		Mall:         SerializeMall(mallDetails.Mall),
-		Site:         mallDetails.Site,
-		DayAndNight:  mallDetails.DayAndNight,
-		WorkingHours: workingHours,
+		Mall:          SerializeMall(mallDetails.Mall),
+		Address:       mallDetails.Address,
+		Site:          mallDetails.Site,
+		DayAndNight:   mallDetails.DayAndNight,
+		WorkingHours:  workingHours,
+		SubwayStation: subwayStation,
 	}
 	return mds
 }
