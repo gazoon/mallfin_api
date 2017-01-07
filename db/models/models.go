@@ -45,7 +45,7 @@ type Mall struct {
 	WorkingHours []*WorkPeriod
 }
 
-func existsQuery(query string, args ...interface{}) bool {
+func ExistsQuery(query string, args ...interface{}) bool {
 	var exists bool
 	conn := db.GetConnection()
 	err := conn.QueryRow(query, args...).Scan(&exists)
@@ -55,7 +55,7 @@ func existsQuery(query string, args ...interface{}) bool {
 	return exists
 }
 func IsShopExists(shopID int) bool {
-	exists := existsQuery(`
+	exists := ExistsQuery(`
 	SELECT exists(
 		SELECT *
 		FROM shop
@@ -64,7 +64,7 @@ func IsShopExists(shopID int) bool {
 	return exists
 }
 func IsMallExists(mallID int) bool {
-	exists := existsQuery(`
+	exists := ExistsQuery(`
 	SELECT exists(
 		SELECT *
 		FROM mall
@@ -73,7 +73,7 @@ func IsMallExists(mallID int) bool {
 	return exists
 }
 func IsCityExists(cityID int) bool {
-	exists := existsQuery(`
+	exists := ExistsQuery(`
 	SELECT exists(
 		SELECT *
 		FROM city
@@ -82,7 +82,7 @@ func IsCityExists(cityID int) bool {
 	return exists
 }
 func IsCategoryExists(categoryID int) bool {
-	exists := existsQuery(`
+	exists := ExistsQuery(`
 	SELECT exists(
 		SELECT *
 		FROM category
@@ -91,7 +91,7 @@ func IsCategoryExists(categoryID int) bool {
 	return exists
 }
 func IsSubwayStationExists(subwayStationID int) bool {
-	exists := existsQuery(`
+	exists := ExistsQuery(`
 	SELECT exists(
 		SELECT *
 		FROM subway_station
@@ -119,6 +119,37 @@ func DeleteAllMalls() {
 //	return mall
 //
 //}
+func GetMallWorkingHours(mallID int) []*WorkPeriod {
+	locLog := moduleLog.WithField("mall", mallID)
+	conn := db.GetConnection()
+	rows, err := conn.Query(`
+		SELECT
+		  opening_day,
+		  opening_time,
+		  closing_day,
+		  closing_time
+		FROM mall_working_hours
+		WHERE mall_id = $1
+		`, mallID)
+	if err != nil && err != sql.ErrNoRows {
+		locLog.Panicf("Cannot get mall working hours: %s", err)
+	}
+	defer rows.Close()
+	var workingHours []*WorkPeriod
+	for rows.Next() {
+		period := WorkPeriod{}
+		err = rows.Scan(&period.OpenDay, &period.OpenTime, &period.CloseDay, &period.CloseTime)
+		if err != nil {
+			locLog.Panicf("Error during scaning working hours: %s", err)
+		}
+		workingHours = append(workingHours, &period)
+	}
+	err = rows.Err()
+	if err != nil {
+		locLog.Panicf("Error after scaning working hours: %s", err)
+	}
+	return workingHours
+}
 func GetMallDetails(mallID int) *Mall {
 	conn := db.GetConnection()
 	mall := Mall{}
@@ -127,49 +158,28 @@ func GetMallDetails(mallID int) *Mall {
 	  m.id,
 	  m.name,
 	  m.phone,
-	  m.address,
 	  m.logo_small,
 	  m.logo_large,
-	  ST_X(m.location),
-	  ST_Y(m.location),
-	  ss.id,
-	  ss.name,
+	  ST_X(m.location) location_lat,
+	  ST_Y(m.location) location_lon,
+	  m.shops_count,
+	  m.address,
 	  m.site,
-	  m.day_and_night
+	  m.day_and_night,
+	  m.subway_station_id,
+	  ss.name          subway_station_name
 	FROM mall m
 	  LEFT JOIN subway_station ss ON m.subway_station_id = ss.id
-	WHERE m.id = $1`, mallID).Scan(&mall.ID, &mall.Name, &mall.Phone, &mall.Address, &mall.LogoSmall, &mall.LogoLarge,
-		&mall.LocationLat, &mall.LocationLon, &mall.SubwayID, &mall.SubwayName, &mall.Site, &mall.DayAndNight)
+	WHERE m.id = $1
+	`, mallID).Scan(&mall.ID, &mall.Name, &mall.Phone, &mall.LogoSmall, &mall.LogoLarge, &mall.LocationLat, &mall.LocationLon, &mall.ShopsCount,
+		&mall.Address, &mall.Site, &mall.DayAndNight, &mall.SubwayID, &mall.SubwayName)
 	if err == sql.ErrNoRows {
 		return nil
 	} else if err != nil {
 		moduleLog.WithField("mall", mallID).Panicf("Cannot get mall by ID: %s", err)
 	}
 	if !mall.DayAndNight {
-		rows, err := conn.Query(`
-		SELECT
-		  opening_day,
-		  opening_time,
-		  closing_day,
-		  closing_time
-		FROM mall_working_hours
-		WHERE mall_id = $1`, mall.ID)
-		if err != nil && err != sql.ErrNoRows {
-			moduleLog.WithField("mall", mall.ID).Panicf("Cannot get mall working hours: %s", err)
-		}
-		defer rows.Close()
-		for rows.Next() {
-			period := WorkPeriod{}
-			err = rows.Scan(&period.OpenDay, &period.OpenTime, &period.CloseDay, &period.CloseTime)
-			if err != nil {
-				moduleLog.WithField("mall", mall.ID).Panicf("Error during scaning working hours: %s", err)
-			}
-			mall.WorkingHours = append(mall.WorkingHours, &period)
-		}
-		err = rows.Err()
-		if err != nil {
-			moduleLog.WithField("mall", mall.ID).Panicf("Error after scaning working hours: %s", err)
-		}
+		mall.WorkingHours = GetMallWorkingHours(mall.ID)
 	}
 	return &mall
 }
@@ -186,7 +196,7 @@ func GetMalls(cityID *int, sortKey *string, limit, offset *uint) ([]*Mall, int) 
 	var malls []*Mall
 	var totalCount int
 	if cityID != nil {
-		malls = mallsQuery(`
+		malls = MallsQuery(`
 		SELECT
 		  m.id,
 		  m.name,
@@ -206,7 +216,7 @@ func GetMalls(cityID *int, sortKey *string, limit, offset *uint) ([]*Mall, int) 
 		WHERE m.city_id = $1
 		`, *cityID)
 	} else {
-		malls = mallsQuery(`
+		malls = MallsQuery(`
 		SELECT
 		  m.id,
 		  m.name,
@@ -228,9 +238,9 @@ func GetMalls(cityID *int, sortKey *string, limit, offset *uint) ([]*Mall, int) 
 }
 func GetMallsByIds(mallIDs []int, sortKey *string, limit, offset *uint) ([]*Mall, int) {
 	if len(mallIDs) == 0 {
-		return []*Mall{}, 0
+		return nil, 0
 	}
-	malls := mallsQuery(`
+	malls := MallsQuery(`
 	SELECT
 	  m.id,
 	  m.name,
@@ -252,7 +262,7 @@ func GetMallsByIds(mallIDs []int, sortKey *string, limit, offset *uint) ([]*Mall
 	return malls, totalCount
 }
 func GetMallsBySubwayStation(subwayStationID int, sortKey *string, limit, offset *uint) ([]*Mall, int) {
-	malls := mallsQuery(`
+	malls := MallsQuery(`
 	SELECT
 	  m.id,
 	  m.name,
@@ -279,7 +289,7 @@ func GetMallsByShop(shopID int, cityID *int, sortKey *string, limit, offset *uin
 	var malls []*Mall
 	var totalCount int
 	if cityID != nil {
-		malls = mallsQuery(`
+		malls = MallsQuery(`
 		SELECT
 		  m.id,
 		  m.name,
@@ -301,7 +311,7 @@ func GetMallsByShop(shopID int, cityID *int, sortKey *string, limit, offset *uin
 		WHERE ms.shop_id = $1 AND m.city_id = $2
 		`, shopID, *cityID)
 	} else {
-		malls = mallsQuery(`
+		malls = MallsQuery(`
 		SELECT
 		  m.id,
 		  m.name,
@@ -329,7 +339,7 @@ func GetMallsByName(name string, cityID *int, sortKey *string, limit, offset *ui
 	var malls []*Mall
 	var totalCount int
 	if cityID != nil {
-		malls = mallsQuery(`
+		malls = MallsQuery(`
 		SELECT DISTINCT ON (m.id)
 		  m.id,
 		  m.name,
@@ -351,7 +361,7 @@ func GetMallsByName(name string, cityID *int, sortKey *string, limit, offset *ui
 		WHERE mn.name ILIKE '%' || $1 || '%' AND m.city_id = $2
 		`, name, *cityID)
 	} else {
-		malls = mallsQuery(`
+		malls = MallsQuery(`
 		SELECT DISTINCT ON (m.id)
 		  m.id,
 		  m.name,
@@ -375,19 +385,19 @@ func GetMallsByName(name string, cityID *int, sortKey *string, limit, offset *ui
 	}
 	return malls, totalCount
 }
-func mallsQuery(query string, args ...interface{}) []*Mall {
+func MallsQuery(query string, args ...interface{}) []*Mall {
 	conn := db.GetConnection()
 	rows, err := conn.Query(query, args...)
 	if err != nil {
 		moduleLog.Panicf("Cannot get malls rows: %s", err)
 	}
 	defer rows.Close()
-	malls := []*Mall{}
+	var malls []*Mall
 	for rows.Next() {
 		m := Mall{}
 		err = rows.Scan(&m.ID, &m.Name, &m.Phone, &m.LogoSmall, &m.LogoLarge, &m.LocationLat, &m.LocationLon, &m.ShopsCount)
 		if err != nil {
-			moduleLog.Panicf("Error during mall row: %s", err)
+			moduleLog.Panicf("Error during scaning mall row: %s", err)
 		}
 		malls = append(malls, &m)
 	}

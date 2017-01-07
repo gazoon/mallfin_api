@@ -39,7 +39,7 @@ func getAllTables() []string {
 		moduleLog.Panic(err)
 	}
 	defer rows.Close()
-	tables := []string{}
+	var tables []string
 	for rows.Next() {
 		var tableName string
 		err := rows.Scan(&tableName)

@@ -59,7 +59,6 @@ func objectResponse(w http.ResponseWriter, object interface{}) {
 	response(w, data)
 }
 func listResponse(w http.ResponseWriter, resultsList interface{}, totalCount int) {
-	log.Info()
 	data := &ListData{
 		TotalCount: totalCount,
 		Count:      reflect.ValueOf(resultsList).Len(),
