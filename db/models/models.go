@@ -6,20 +6,69 @@ import (
 
 	"time"
 
+	"fmt"
+	"strings"
+
 	log "github.com/Sirupsen/logrus"
 	"github.com/lib/pq"
 )
 
+var moduleLog = log.WithField("location", "models")
+
+type OrderBy struct {
+	Column  string
+	Reverse bool
+}
+
+func (o *OrderBy) String() string {
+	var s string
+	if o.Reverse {
+		s = fmt.Sprintf("%s DESC", o.Column)
+	} else {
+		s = fmt.Sprintf("%s ASC", o.Column)
+	}
+	return s
+}
+
+type SortKeyToOrderBy map[string]*OrderBy
+
 var (
-	moduleLog = log.WithField("location", "models")
+	MALL_DEFAULT_ORDER_BY = &OrderBy{Column: "m.id", Reverse: false}
+	SHOP_DEFAULT_ORDER_BY = &OrderBy{Column: "s.id", Reverse: false}
+	MALL_SORT_KEYS        = SortKeyToOrderBy{
+		"id":           MALL_DEFAULT_ORDER_BY,
+		"-id":          {Column: "m.id", Reverse: true},
+		"name":         {Column: "m.name", Reverse: false},
+		"-name":        {Column: "m.name", Reverse: true},
+		"shops_count":  {Column: "m.shops_count", Reverse: false},
+		"-shops_count": {Column: "m.shops_count", Reverse: true},
+	}
+	SHOP_SORT_KEYS = SortKeyToOrderBy{
+		"id":     SHOP_DEFAULT_ORDER_BY,
+		"-id":    {Column: "s.id", Reverse: true},
+		"name":   {Column: "s.name", Reverse: false},
+		"-name":  {Column: "s.name", Reverse: true},
+		"score":  {Column: "s.score", Reverse: false},
+		"-score": {Column: "s.score", Reverse: true},
+	}
 )
 
-const (
-	NAME_MALL_SORT_KEY        = "name"
-	SHOPS_COUNT_MALL_SORT_KEY = "shops_count"
-	NAME_SHOP_SORT_KEY        = "name"
-	SCORE_SHOP_SORT_KEY       = "score"
-)
+func (sk SortKeyToOrderBy) FmtKeys() string {
+	keys := make([]string, 0, len(sk))
+	for key := range sk {
+		keys = append(keys, key)
+	}
+	return strings.Join(keys, ", ")
+}
+func (sk SortKeyToOrderBy) CorrespondingOrderBy(sortKey *string) *OrderBy {
+	orderBy := MALL_DEFAULT_ORDER_BY
+	if sortKey != nil {
+		if correspondOrderBy, ok := MALL_SORT_KEYS[*sortKey]; ok {
+			orderBy = correspondOrderBy
+		}
+	}
+	return orderBy
+}
 
 type WorkPeriod struct {
 	OpenTime  time.Time
@@ -195,8 +244,9 @@ func countQuery(query string, args ...interface{}) int {
 func GetMalls(cityID *int, sortKey *string, limit, offset *uint) ([]*Mall, int) {
 	var malls []*Mall
 	var totalCount int
+	orderBy := MALL_SORT_KEYS.CorrespondingOrderBy(sortKey)
 	if cityID != nil {
-		malls = MallsQuery(`
+		malls = MallsQuery(fmt.Sprintf(`
 		SELECT
 		  m.id,
 		  m.name,
@@ -207,8 +257,11 @@ func GetMalls(cityID *int, sortKey *string, limit, offset *uint) ([]*Mall, int) 
 		  ST_Y(m.location)  location_lon,
 		  m.shops_count
 		FROM mall m
-		WHERE m.city_id = $1
-		`, *cityID)
+		WHERE m.city_id = $3
+		ORDER BY %s
+		LIMIT $1
+		OFFSET $2
+		`, orderBy), limit, offset, *cityID)
 		totalCount = countQuery(`
 		SELECT
 		  count(*) total_count
@@ -216,7 +269,7 @@ func GetMalls(cityID *int, sortKey *string, limit, offset *uint) ([]*Mall, int) 
 		WHERE m.city_id = $1
 		`, *cityID)
 	} else {
-		malls = MallsQuery(`
+		malls = MallsQuery(fmt.Sprintf(`
 		SELECT
 		  m.id,
 		  m.name,
@@ -227,7 +280,10 @@ func GetMalls(cityID *int, sortKey *string, limit, offset *uint) ([]*Mall, int) 
 		  ST_Y(m.location)  location_lon,
 		  m.shops_count
 		FROM mall m
-		`)
+		ORDER BY %s
+		LIMIT $1
+		OFFSET $2
+		`, orderBy), limit, offset)
 		totalCount = countQuery(`
 		SELECT
 		  count(*) total_count
@@ -240,7 +296,8 @@ func GetMallsByIds(mallIDs []int, sortKey *string, limit, offset *uint) ([]*Mall
 	if len(mallIDs) == 0 {
 		return nil, 0
 	}
-	malls := MallsQuery(`
+	orderBy := MALL_SORT_KEYS.CorrespondingOrderBy(sortKey)
+	malls := MallsQuery(fmt.Sprintf(`
 	SELECT
 	  m.id,
 	  m.name,
@@ -251,8 +308,11 @@ func GetMallsByIds(mallIDs []int, sortKey *string, limit, offset *uint) ([]*Mall
 	  ST_Y(m.location)  location_lon,
 	  m.shops_count
 	FROM mall m
-	WHERE m.id = ANY($1)
-	`, pq.Array(mallIDs))
+	WHERE m.id = ANY($3)
+	ORDER BY %s
+	LIMIT $1
+	OFFSET $2
+	`, orderBy), limit, offset, pq.Array(mallIDs))
 	totalCount := countQuery(`
 	SELECT
 	  count(*) total_count
@@ -262,7 +322,8 @@ func GetMallsByIds(mallIDs []int, sortKey *string, limit, offset *uint) ([]*Mall
 	return malls, totalCount
 }
 func GetMallsBySubwayStation(subwayStationID int, sortKey *string, limit, offset *uint) ([]*Mall, int) {
-	malls := MallsQuery(`
+	orderBy := MALL_SORT_KEYS.CorrespondingOrderBy(sortKey)
+	malls := MallsQuery(fmt.Sprintf(`
 	SELECT
 	  m.id,
 	  m.name,
@@ -274,8 +335,11 @@ func GetMallsBySubwayStation(subwayStationID int, sortKey *string, limit, offset
 	  m.shops_count
 	FROM mall m
 	  LEFT JOIN subway_station ss ON m.subway_station_id = ss.id
-	WHERE ss.id = $1
-	`, subwayStationID)
+	WHERE ss.id = $3
+	ORDER BY %s
+	LIMIT $1
+	OFFSET $2
+	`, orderBy), limit, offset, subwayStationID)
 	totalCount := countQuery(`
 	SELECT
 	  count(*) total_count
@@ -288,8 +352,9 @@ func GetMallsBySubwayStation(subwayStationID int, sortKey *string, limit, offset
 func GetMallsByShop(shopID int, cityID *int, sortKey *string, limit, offset *uint) ([]*Mall, int) {
 	var malls []*Mall
 	var totalCount int
+	orderBy := MALL_SORT_KEYS.CorrespondingOrderBy(sortKey)
 	if cityID != nil {
-		malls = MallsQuery(`
+		malls = MallsQuery(fmt.Sprintf(`
 		SELECT
 		  m.id,
 		  m.name,
@@ -301,8 +366,11 @@ func GetMallsByShop(shopID int, cityID *int, sortKey *string, limit, offset *uin
 		  m.shops_count
 		FROM mall m
 		  JOIN mall_shop ms ON m.id = ms.mall_id
-		WHERE ms.shop_id = $1 AND m.city_id = $2
-		`, shopID, *cityID)
+		WHERE ms.shop_id = $3 AND m.city_id = $4
+		ORDER BY %s
+		LIMIT $1
+		OFFSET $2
+		`, orderBy), limit, offset, shopID, *cityID)
 		totalCount = countQuery(`
 		SELECT
 		  count(*) total_count
@@ -311,7 +379,7 @@ func GetMallsByShop(shopID int, cityID *int, sortKey *string, limit, offset *uin
 		WHERE ms.shop_id = $1 AND m.city_id = $2
 		`, shopID, *cityID)
 	} else {
-		malls = MallsQuery(`
+		malls = MallsQuery(fmt.Sprintf(`
 		SELECT
 		  m.id,
 		  m.name,
@@ -323,8 +391,11 @@ func GetMallsByShop(shopID int, cityID *int, sortKey *string, limit, offset *uin
 		  m.shops_count
 		FROM mall m
 		  JOIN mall_shop ms ON m.id = ms.mall_id
-		WHERE ms.shop_id = $1
-		`, shopID)
+		WHERE ms.shop_id = $3
+		ORDER BY %s
+		LIMIT $1
+		OFFSET $2
+		`, orderBy), limit, offset, shopID)
 		totalCount = countQuery(`
 		SELECT
 		  count(*) total_count
@@ -338,9 +409,10 @@ func GetMallsByShop(shopID int, cityID *int, sortKey *string, limit, offset *uin
 func GetMallsByName(name string, cityID *int, sortKey *string, limit, offset *uint) ([]*Mall, int) {
 	var malls []*Mall
 	var totalCount int
+	orderBy := MALL_SORT_KEYS.CorrespondingOrderBy(sortKey)
 	if cityID != nil {
-		malls = MallsQuery(`
-		SELECT DISTINCT ON (m.id)
+		malls = MallsQuery(fmt.Sprintf(`
+		SELECT
 		  m.id,
 		  m.name,
 		  m.phone,
@@ -350,19 +422,26 @@ func GetMallsByName(name string, cityID *int, sortKey *string, limit, offset *ui
 		  ST_Y(m.location) location_lon,
 		  m.shops_count
 		FROM mall m
-		  JOIN mall_name mn ON m.id = mn.mall_id
-		WHERE mn.name ILIKE '%' || $1 || '%' AND m.city_id = $2
-		`, name, *cityID)
+		  JOIN (SELECT DISTINCT ON (mall_id) mall_id
+				FROM mall_name
+				WHERE name ILIKE '%%' || $3 || '%%') mn ON m.id = mn.mall_id
+		WHERE m.city_id = $4
+		ORDER BY %s
+		LIMIT $1
+		OFFSET $2
+		`, orderBy), limit, offset, name, *cityID)
 		totalCount = countQuery(`
 		SELECT
-		  count(DISTINCT m.id) total_count
+		  count(*) total_count
 		FROM mall m
-		  JOIN mall_name mn ON m.id = mn.mall_id
-		WHERE mn.name ILIKE '%' || $1 || '%' AND m.city_id = $2
+		  JOIN (SELECT DISTINCT ON (mall_id) mall_id
+				FROM mall_name
+				WHERE name ILIKE '%' || $1 || '%') mn ON m.id = mn.mall_id
+		WHERE m.city_id = $2
 		`, name, *cityID)
 	} else {
-		malls = MallsQuery(`
-		SELECT DISTINCT ON (m.id)
+		malls = MallsQuery(fmt.Sprintf(`
+		SELECT
 		  m.id,
 		  m.name,
 		  m.phone,
@@ -372,15 +451,20 @@ func GetMallsByName(name string, cityID *int, sortKey *string, limit, offset *ui
 		  ST_Y(m.location) location_lon,
 		  m.shops_count
 		FROM mall m
-		  JOIN mall_name mn ON m.id = mn.mall_id
-		WHERE mn.name ILIKE '%' || $1 || '%'
-		`, name)
+		  JOIN (SELECT DISTINCT ON (mall_id) mall_id
+				FROM mall_name
+				WHERE name ILIKE '%%' || $3 || '%%') mn ON m.id = mn.mall_id
+		ORDER BY %s
+		LIMIT $1
+		OFFSET $2
+		`, orderBy), limit, offset, name)
 		totalCount = countQuery(`
 		SELECT
-		  count(DISTINCT m.id) total_count
+		  count(*) total_count
 		FROM mall m
-		  JOIN mall_name mn ON m.id = mn.mall_id
-		WHERE mn.name ILIKE '%' || $1 || '%'
+		  JOIN (SELECT DISTINCT ON (mall_id) mall_id
+				FROM mall_name
+				WHERE name ILIKE '%' || $1 || '%') mn ON m.id = mn.mall_id
 		`, name)
 	}
 	return malls, totalCount

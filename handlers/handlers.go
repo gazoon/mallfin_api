@@ -38,11 +38,10 @@ func (mf *mallsListForm) FieldMap(req *http.Request) binding.FieldMap {
 func (mf *mallsListForm) Validate(req *http.Request, errs binding.Errors) binding.Errors {
 	if mf.Sort != nil {
 		sortKey := *mf.Sort
-		if sortKey != models.NAME_MALL_SORT_KEY && sortKey != models.SHOPS_COUNT_MALL_SORT_KEY {
+		if _, ok := models.MALL_SORT_KEYS[sortKey]; !ok {
 			errs = append(errs, binding.Error{
 				FieldNames: []string{"sort"},
-				Message: fmt.Sprintf("Invalid sort key for list of malls, valid values: %s or %s.",
-					models.NAME_MALL_SORT_KEY, models.SHOPS_COUNT_MALL_SORT_KEY),
+				Message:    fmt.Sprintf("Invalid sort key for list of malls, valid values: %s.", models.MALL_SORT_KEYS.FmtKeys()),
 			})
 		}
 	}

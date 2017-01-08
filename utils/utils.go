@@ -98,3 +98,11 @@ func funcNameFromFullName(fullName string) string {
 	}
 	return name
 }
+func MapKeys(m interface{}) []string {
+	keysRaw := reflect.ValueOf(m).MapKeys()
+	keys := make([]string, len(keysRaw))
+	for i := range keysRaw {
+		keys[i] = keysRaw[i].String()
+	}
+	return keys
+}
