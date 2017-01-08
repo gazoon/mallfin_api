@@ -30,40 +30,58 @@ func (o *OrderBy) String() string {
 	return s
 }
 
-type SortKeyToOrderBy map[string]*OrderBy
+type SortKeyToOrderBy struct {
+	dict           map[string]*OrderBy
+	defaultOrderBy *OrderBy
+}
 
 var (
 	MALL_DEFAULT_ORDER_BY = &OrderBy{Column: "m.id", Reverse: false}
 	SHOP_DEFAULT_ORDER_BY = &OrderBy{Column: "s.id", Reverse: false}
-	MALL_SORT_KEYS        = SortKeyToOrderBy{
-		"id":           MALL_DEFAULT_ORDER_BY,
-		"-id":          {Column: "m.id", Reverse: true},
-		"name":         {Column: "m.name", Reverse: false},
-		"-name":        {Column: "m.name", Reverse: true},
-		"shops_count":  {Column: "m.shops_count", Reverse: false},
-		"-shops_count": {Column: "m.shops_count", Reverse: true},
+
+	MALL_SORT_KEYS = &SortKeyToOrderBy{
+		dict: map[string]*OrderBy{
+			"id":           MALL_DEFAULT_ORDER_BY,
+			"-id":          {Column: "m.id", Reverse: true},
+			"name":         {Column: "m.name", Reverse: false},
+			"-name":        {Column: "m.name", Reverse: true},
+			"shops_count":  {Column: "m.shops_count", Reverse: false},
+			"-shops_count": {Column: "m.shops_count", Reverse: true},
+		},
+		defaultOrderBy: MALL_DEFAULT_ORDER_BY,
 	}
-	SHOP_SORT_KEYS = SortKeyToOrderBy{
-		"id":     SHOP_DEFAULT_ORDER_BY,
-		"-id":    {Column: "s.id", Reverse: true},
-		"name":   {Column: "s.name", Reverse: false},
-		"-name":  {Column: "s.name", Reverse: true},
-		"score":  {Column: "s.score", Reverse: false},
-		"-score": {Column: "s.score", Reverse: true},
+	SHOP_SORT_KEYS = &SortKeyToOrderBy{
+		dict: map[string]*OrderBy{
+			"id":     SHOP_DEFAULT_ORDER_BY,
+			"-id":    {Column: "s.id", Reverse: true},
+			"name":   {Column: "s.name", Reverse: false},
+			"-name":  {Column: "s.name", Reverse: true},
+			"score":  {Column: "s.score", Reverse: false},
+			"-score": {Column: "s.score", Reverse: true},
+		},
+		defaultOrderBy: SHOP_DEFAULT_ORDER_BY,
 	}
 )
 
-func (sk SortKeyToOrderBy) FmtKeys() string {
-	keys := make([]string, 0, len(sk))
-	for key := range sk {
+func (sk *SortKeyToOrderBy) FmtKeys() string {
+	keys := make([]string, 0, len(sk.dict))
+	for key := range sk.dict {
 		keys = append(keys, key)
 	}
 	return strings.Join(keys, ", ")
 }
-func (sk SortKeyToOrderBy) CorrespondingOrderBy(sortKey *string) *OrderBy {
-	orderBy := MALL_DEFAULT_ORDER_BY
+func (sk *SortKeyToOrderBy) IsValid(sortKey *string) bool {
 	if sortKey != nil {
-		if correspondOrderBy, ok := MALL_SORT_KEYS[*sortKey]; ok {
+		if _, ok := sk.dict[*sortKey]; !ok {
+			return false
+		}
+	}
+	return true
+}
+func (sk *SortKeyToOrderBy) CorrespondingOrderBy(sortKey *string) *OrderBy {
+	orderBy := sk.defaultOrderBy
+	if sortKey != nil {
+		if correspondOrderBy, ok := sk.dict[*sortKey]; ok {
 			orderBy = correspondOrderBy
 		}
 	}
@@ -525,6 +543,65 @@ func GetShopDetails(shopID int) *Shop {
 
 }
 func GetShops(cityID *int, sortKey *string, limit, offset *uint) ([]*Shop, int) {
+	return nil, 0
+}
+func GetShopsByMall(mallID int, sortKey *string, limit, offset *uint) ([]*Shop, int) {
+	orderBy := SHOP_SORT_KEYS.CorrespondingOrderBy(sortKey)
+	shops := ShopsQuery(fmt.Sprintf(`
+	SELECT
+	  s.id,
+	  s.name,
+	  s.phone,
+	  s.logo_small,
+	  s.logo_large,
+	  s.score
+	FROM shop s
+	  JOIN mall_shop ms ON s.id = ms.shop_id
+	WHERE ms.mall_id = $3
+	ORDER BY %s
+	LIMIT $1
+	OFFSET $2
+	`, orderBy), limit, offset, mallID)
+	totalCount := countQuery(`
+	SELECT
+	  count(*) total_count
+	FROM shop s
+	  JOIN mall_shop ms ON s.id = ms.shop_id
+	WHERE ms.mall_id = $1
+	`, mallID)
+	return shops, totalCount
+}
+func GetShopsByIds(shopIDs []int, sortKey *string, limit, offset *uint) ([]*Shop, int) {
+	if len(shopIDs) == 0 {
+		return nil, 0
+	}
+	orderBy := SHOP_SORT_KEYS.CorrespondingOrderBy(sortKey)
+	shops := ShopsQuery(fmt.Sprintf(`
+	SELECT
+	  s.id,
+	  s.name,
+	  s.phone,
+	  s.logo_small,
+	  s.logo_large,
+	  s.score
+	FROM shop s
+	WHERE s.id = ANY($3)
+	ORDER BY %s
+	LIMIT $1
+	OFFSET $2
+	`, orderBy), limit, offset, pq.Array(shopIDs))
+	totalCount := countQuery(`
+	SELECT
+	  count(*) total_count
+	FROM shop s
+	WHERE s.id = ANY($1)
+	`, pq.Array(shopIDs))
+	return shops, totalCount
+}
+func GetShopsByName(name string, cityID *int, sortKey *string, limit, offset *uint) ([]*Shop, int) {
+	return nil, 0
+}
+func GetShopsByCategory(categoryID int, cityID *int, sortKey *string, limit, offset *uint) ([]*Shop, int) {
 	return nil, 0
 }
 func ShopsQuery(query string, args ...interface{}) []*Shop {
