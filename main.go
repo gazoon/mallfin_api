@@ -52,6 +52,7 @@ func main() {
 	r := httprouter.New()
 	r.GET("/malls/", handlers.MallsList)
 	r.GET("/malls/:id/", handlers.MallDetails)
+	r.GET("/shops/:id/", handlers.ShopDetails)
 
 	n := negroni.New()
 	n.Use(&negroni.Logger{ALogger: log.StandardLogger()})

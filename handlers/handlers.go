@@ -108,3 +108,18 @@ func MallDetails(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	mallSerialized := serializers.SerializeMall(mall)
 	objectResponse(w, mallSerialized)
 }
+func ShopDetails(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	shopID, err := ps.ByNameInt("id")
+	if err != nil {
+		errorResponse(w, INVALID_REQUEST_DATA, err.Error(), http.StatusBadRequest)
+		return
+	}
+	shop := models.GetShopDetails(shopID)
+	if shop == nil {
+		errorResponse(w, SHOP_NOT_FOUND, "Shop with such id does not exists", http.StatusNotFound)
+		return
+	}
+	shopSerialized := serializers.SerializeShop(shop)
+	objectResponse(w, shopSerialized)
+
+}

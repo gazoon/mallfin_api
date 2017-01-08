@@ -85,13 +85,23 @@ type Mall struct {
 	LocationLat float64
 	LocationLon float64
 	ShopsCount  int
-	// details:
-	Address      string
+	Address     string
+	//Details
 	Site         string
 	DayAndNight  bool
 	SubwayID     *int
 	SubwayName   *string
 	WorkingHours []*WorkPeriod
+}
+type Shop struct {
+	ID        int
+	Name      string
+	Phone     string
+	LogoLarge string
+	LogoSmall string
+	Score     int
+	//Details
+	Site string
 }
 
 func ExistsQuery(query string, args ...interface{}) bool {
@@ -490,4 +500,52 @@ func MallsQuery(query string, args ...interface{}) []*Mall {
 		moduleLog.Panicf("Error after scaning malls rows: %s", err)
 	}
 	return malls
+}
+func GetShopDetails(shopID int) *Shop {
+	conn := db.GetConnection()
+	shop := Shop{}
+	err := conn.QueryRow(`
+	SELECT
+	  s.id,
+	  s.name,
+	  s.phone,
+	  s.logo_small,
+	  s.logo_large,
+	  s.score,
+	  s.site
+	FROM shop s
+	WHERE s.id = $1
+	`, shopID).Scan(&shop.ID, &shop.Name, &shop.Phone, &shop.LogoSmall, &shop.LogoLarge, &shop.Score, &shop.Site)
+	if err == sql.ErrNoRows {
+		return nil
+	} else if err != nil {
+		moduleLog.WithField("shop", shopID).Panicf("Cannot get shop by ID: %s", err)
+	}
+	return &shop
+
+}
+func GetShops(cityID *int, sortKey *string, limit, offset *uint) ([]*Shop, int) {
+	return nil, 0
+}
+func ShopsQuery(query string, args ...interface{}) []*Shop {
+	conn := db.GetConnection()
+	rows, err := conn.Query(query, args...)
+	if err != nil {
+		moduleLog.Panicf("Cannot get shops rows: %s", err)
+	}
+	defer rows.Close()
+	var shops []*Shop
+	for rows.Next() {
+		s := Shop{}
+		err = rows.Scan(&s.ID, &s.Name, &s.Phone, &s.LogoSmall, &s.LogoLarge, &s.Score)
+		if err != nil {
+			moduleLog.Panicf("Error during scaning shop row: %s", err)
+		}
+		shops = append(shops, &s)
+	}
+	err = rows.Err()
+	if err != nil {
+		moduleLog.Panicf("Error after scaning shops rows: %s", err)
+	}
+	return shops
 }
