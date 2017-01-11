@@ -106,18 +106,10 @@
 
 * **Query Params:**
 
-    ids [list] - list of specific city ids
+    query [string] - text query to search
 
+    sort [string] - which field to use for sorting
 
-**City details**
-----
-* **URL:**
-
-    /cities/:id/
-
-* **Query Params:**
-
-    None
 
 **Mall Object**
 ----

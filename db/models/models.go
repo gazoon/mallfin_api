@@ -46,6 +46,7 @@ var (
 	MALL_DEFAULT_ORDER_BY     = &OrderBy{Column: "m.id", Reverse: false}
 	SHOP_DEFAULT_ORDER_BY     = &OrderBy{Column: "s.id", Reverse: false}
 	CATEGORY_DEFAULT_ORDER_BY = &OrderBy{Column: "c.id", Reverse: false}
+	CITY_DEFAULT_ORDER_BY     = &OrderBy{Column: "c.id", Reverse: false}
 
 	MALL_SORT_KEYS = &SortKeyToOrderBy{
 		dict: map[string]*OrderBy{
@@ -81,6 +82,15 @@ var (
 			"-shops_count": {Column: "c.shops_count", Reverse: true},
 		},
 		defaultOrderBy: CATEGORY_DEFAULT_ORDER_BY,
+	}
+	CITY_SORT_KEYS = &SortKeyToOrderBy{
+		dict: map[string]*OrderBy{
+			"id":    CITY_DEFAULT_ORDER_BY,
+			"-id":   {Column: "c.id", Reverse: true},
+			"name":  {Column: "c.name", Reverse: false},
+			"-name": {Column: "c.name", Reverse: true},
+		},
+		defaultOrderBy: CITY_DEFAULT_ORDER_BY,
 	}
 )
 
@@ -151,6 +161,11 @@ type Category struct {
 	LogoLarge  string
 	LogoSmall  string
 	ShopsCount int
+}
+
+type City struct {
+	ID   int
+	Name string
 }
 
 func ExistsQuery(query string, args ...interface{}) bool {
@@ -904,4 +919,58 @@ func CategoriesQuery(query string, args ...interface{}) []*Category {
 		moduleLog.Panicf("Error after scaning categories rows: %s", err)
 	}
 	return shops
+}
+func GetCities(sortKey *string) ([]*City, int) {
+	orderBy := CITY_SORT_KEYS.CorrespondingOrderBy(sortKey)
+	cities := CitiesQuery(orderBy.Compile(`
+	SELECT
+	  c.id,
+	  c.name
+	FROM city c
+	ORDER BY %s
+	`))
+	totalCount := countQuery(`
+	SELECT count(*) total_count
+	FROM city c
+	`)
+	return cities, totalCount
+}
+func GetCitiesByName(name string, sortKey *string) ([]*City, int) {
+	orderBy := CITY_SORT_KEYS.CorrespondingOrderBy(sortKey)
+	cities := CitiesQuery(orderBy.Compile(`
+	SELECT
+	  c.id,
+	  c.name
+	FROM city c
+	WHERE c.name ILIKE '%%' || $1 || '%%'
+	ORDER BY %s
+	`), name)
+	totalCount := countQuery(`
+	SELECT count(*) total_count
+	FROM city c
+	WHERE c.name ILIKE '%%' || $1 || '%%'
+	`, name)
+	return cities, totalCount
+}
+func CitiesQuery(query string, args ...interface{}) []*City {
+	conn := db.GetConnection()
+	rows, err := conn.Query(query, args...)
+	if err != nil {
+		moduleLog.Panicf("Cannot get cities rows: %s", err)
+	}
+	defer rows.Close()
+	var cities []*City
+	for rows.Next() {
+		c := City{}
+		err = rows.Scan(&c.ID, &c.Name)
+		if err != nil {
+			moduleLog.Panicf("Error during scaning city row: %s", err)
+		}
+		cities = append(cities, &c)
+	}
+	err = rows.Err()
+	if err != nil {
+		moduleLog.Panicf("Error after scaning cities rows: %s", err)
+	}
+	return cities
 }

@@ -3,126 +3,12 @@ package handlers
 import (
 	"net/http"
 
-	"fmt"
 	"mallfin_api/db/models"
 	"mallfin_api/serializers"
 
 	"github.com/gazoon/binding"
 	"github.com/gazoon/httprouter"
 )
-
-type mallsListForm struct {
-	City          *int
-	Shop          *int
-	Query         *string
-	SubwayStation *int
-	Ids           []int
-	Sort          *string
-	Limit         *uint
-	Offset        *uint
-}
-
-func (mf *mallsListForm) FieldMap(req *http.Request) binding.FieldMap {
-	return binding.FieldMap{
-		&mf.City:          "city",
-		&mf.Shop:          "shop",
-		&mf.SubwayStation: "subway_station",
-		&mf.Query:         "query",
-		&mf.Ids:           "ids",
-		&mf.Sort:          "sort",
-		&mf.Limit:         "limit",
-		&mf.Offset:        "offset",
-	}
-}
-
-func (mf *mallsListForm) Validate(req *http.Request, errs binding.Errors) binding.Errors {
-	if !models.MALL_SORT_KEYS.IsValid(mf.Sort) {
-		errs = append(errs, binding.Error{
-			FieldNames: []string{"sort"},
-			Message:    fmt.Sprintf("Invalid sort key for list of malls, valid values: %s.", models.MALL_SORT_KEYS.FmtKeys()),
-		})
-	}
-	return errs
-}
-
-type shopsListForm struct {
-	City     *int
-	Mall     *int
-	Query    *string
-	Category *int
-	Ids      []int
-	Sort     *string
-	Limit    *uint
-	Offset   *uint
-}
-
-func (sf *shopsListForm) FieldMap(req *http.Request) binding.FieldMap {
-	return binding.FieldMap{
-		&sf.City:     "city",
-		&sf.Mall:     "mall",
-		&sf.Category: "category",
-		&sf.Query:    "query",
-		&sf.Ids:      "ids",
-		&sf.Sort:     "sort",
-		&sf.Limit:    "limit",
-		&sf.Offset:   "offset",
-	}
-}
-
-func (sf *shopsListForm) Validate(req *http.Request, errs binding.Errors) binding.Errors {
-	if !models.SHOP_SORT_KEYS.IsValid(sf.Sort) {
-		errs = append(errs, binding.Error{
-			FieldNames: []string{"sort"},
-			Message:    fmt.Sprintf("Invalid sort key for list of shops, valid values: %s.", models.SHOP_SORT_KEYS.FmtKeys()),
-		})
-	}
-	return errs
-}
-
-type shopDetailsForm struct {
-	City *int
-}
-
-func (cf *shopDetailsForm) FieldMap(req *http.Request) binding.FieldMap {
-	return binding.FieldMap{
-		&cf.City: "city",
-	}
-}
-
-type categoriesListForm struct {
-	City *int
-	Shop *int
-	Ids  []int
-	Sort *string
-}
-
-func (cf *categoriesListForm) FieldMap(req *http.Request) binding.FieldMap {
-	return binding.FieldMap{
-		&cf.City: "city",
-		&cf.Shop: "shop",
-		&cf.Ids:  "ids",
-		&cf.Sort: "sort",
-	}
-}
-func (cf *categoriesListForm) Validate(req *http.Request, errs binding.Errors) binding.Errors {
-	if !models.CATEGORY_SORT_KEYS.IsValid(cf.Sort) {
-		errs = append(errs, binding.Error{
-			FieldNames: []string{"sort"},
-			Message:    fmt.Sprintf("Invalid sort key for list of categories, valid values: %s.", models.CATEGORY_SORT_KEYS.FmtKeys()),
-		})
-	}
-	return errs
-}
-
-type categoryDetailsForm struct {
-	City *int
-}
-
-func (cf *categoryDetailsForm) FieldMap(req *http.Request) binding.FieldMap {
-	return binding.FieldMap{
-		&cf.City: "city",
-	}
-}
 
 func MallsList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	formData := mallsListForm{}
@@ -302,4 +188,23 @@ func CategoryDetails(w http.ResponseWriter, r *http.Request, ps httprouter.Param
 	}
 	serialized := serializers.SerializeCategory(category)
 	objectResponse(w, serialized)
+}
+func CitiesList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	formData := citiesListForm{}
+	errs := binding.Form(r, &formData)
+	if errs != nil {
+		errorResponse(w, INVALID_REQUEST_DATA, errs.Error(), http.StatusBadRequest)
+		return
+	}
+	sortKey := formData.Sort
+	var cities []*models.City
+	var totalCount int
+	if formData.Query != nil {
+		name := *formData.Query
+		cities, totalCount = models.GetCitiesByName(name, sortKey)
+	} else {
+		cities, totalCount = models.GetCities(sortKey)
+	}
+	serialized := serializers.SerializeCities(cities)
+	listResponse(w, serialized, totalCount)
 }

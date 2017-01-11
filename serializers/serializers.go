@@ -62,6 +62,10 @@ type CategoryBase struct {
 type CategoryDetails struct {
 	*CategoryBase
 }
+type CityBase struct {
+	ID   int    `json:"id"`
+	Name string `json:"name"`
+}
 
 func serializeMallBase(mall *models.Mall) *MallBase {
 	serializer := &MallBase{
@@ -102,6 +106,13 @@ func serializeCategoryBase(category *models.Category) *CategoryBase {
 			Small: category.LogoSmall,
 		},
 		ShopsCount: category.ShopsCount,
+	}
+	return serializer
+}
+func serializeCityBase(city *models.City) *CityBase {
+	serializer := &CityBase{
+		ID:   city.ID,
+		Name: city.Name,
 	}
 	return serializer
 }
@@ -169,6 +180,14 @@ func SerializeCategories(categories []*models.Category) []*CategoryBase {
 	for i := range categories {
 		category := categories[i]
 		serializers[i] = serializeCategoryBase(category)
+	}
+	return serializers
+}
+func SerializeCities(cities []*models.City) []*CityBase {
+	serializers := make([]*CityBase, len(cities))
+	for i := range cities {
+		city := cities[i]
+		serializers[i] = serializeCityBase(city)
 	}
 	return serializers
 }
