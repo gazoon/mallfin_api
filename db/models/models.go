@@ -52,12 +52,14 @@ var (
 	}
 	SHOP_SORT_KEYS = &SortKeyToOrderBy{
 		dict: map[string]*OrderBy{
-			"id":     SHOP_DEFAULT_ORDER_BY,
-			"-id":    {Column: "s.id", Reverse: true},
-			"name":   {Column: "s.name", Reverse: false},
-			"-name":  {Column: "s.name", Reverse: true},
-			"score":  {Column: "s.score", Reverse: false},
-			"-score": {Column: "s.score", Reverse: true},
+			"id":           SHOP_DEFAULT_ORDER_BY,
+			"-id":          {Column: "s.id", Reverse: true},
+			"name":         {Column: "s.name", Reverse: false},
+			"-name":        {Column: "s.name", Reverse: true},
+			"score":        {Column: "s.score", Reverse: false},
+			"-score":       {Column: "s.score", Reverse: true},
+			"malls_count":  {Column: "s.malls_count", Reverse: false},
+			"-malls_count": {Column: "s.malls_count", Reverse: true},
 		},
 		defaultOrderBy: SHOP_DEFAULT_ORDER_BY,
 	}
@@ -112,14 +114,15 @@ type Mall struct {
 	WorkingHours []*WorkPeriod
 }
 type Shop struct {
-	ID        int
-	Name      string
-	Phone     string
-	LogoLarge string
-	LogoSmall string
-	Score     int
+	ID         int
+	Name       string
+	LogoLarge  string
+	LogoSmall  string
+	Score      int
+	MallsCount int
 	//Details
-	Site string
+	Phone string
+	Site  string
 }
 
 func ExistsQuery(query string, args ...interface{}) bool {
@@ -320,12 +323,11 @@ func GetMalls(cityID *int, sortKey *string, limit, offset *uint) ([]*Mall, int) 
 	}
 	return malls, totalCount
 }
-func GetMallsByIds(mallIDs []int, sortKey *string, limit, offset *uint) ([]*Mall, int) {
+func GetMallsByIds(mallIDs []int) ([]*Mall, int) {
 	if len(mallIDs) == 0 {
 		return nil, 0
 	}
-	orderBy := MALL_SORT_KEYS.CorrespondingOrderBy(sortKey)
-	malls := MallsQuery(fmt.Sprintf(`
+	malls := MallsQuery(`
 	SELECT
 	  m.id,
 	  m.name,
@@ -336,11 +338,8 @@ func GetMallsByIds(mallIDs []int, sortKey *string, limit, offset *uint) ([]*Mall
 	  ST_Y(m.location)  location_lon,
 	  m.shops_count
 	FROM mall m
-	WHERE m.id = ANY($3)
-	ORDER BY %s
-	LIMIT $1
-	OFFSET $2
-	`, orderBy), limit, offset, pq.Array(mallIDs))
+	WHERE m.id = ANY($1)
+	`, pq.Array(mallIDs))
 	totalCount := countQuery(`
 	SELECT
 	  count(*) total_count
@@ -526,14 +525,15 @@ func GetShopDetails(shopID int) *Shop {
 	SELECT
 	  s.id,
 	  s.name,
-	  s.phone,
 	  s.logo_small,
 	  s.logo_large,
 	  s.score,
+	  s.malls_count,
+	  s.phone,
 	  s.site
 	FROM shop s
 	WHERE s.id = $1
-	`, shopID).Scan(&shop.ID, &shop.Name, &shop.Phone, &shop.LogoSmall, &shop.LogoLarge, &shop.Score, &shop.Site)
+	`, shopID).Scan(&shop.ID, &shop.Name, &shop.LogoSmall, &shop.LogoLarge, &shop.Score, &shop.MallsCount, &shop.Phone, &shop.Site)
 	if err == sql.ErrNoRows {
 		return nil
 	} else if err != nil {
@@ -551,10 +551,10 @@ func GetShopsByMall(mallID int, sortKey *string, limit, offset *uint) ([]*Shop, 
 	SELECT
 	  s.id,
 	  s.name,
-	  s.phone,
 	  s.logo_small,
 	  s.logo_large,
-	  s.score
+	  s.score,
+	  s.malls_count
 	FROM shop s
 	  JOIN mall_shop ms ON s.id = ms.shop_id
 	WHERE ms.mall_id = $3
@@ -571,25 +571,21 @@ func GetShopsByMall(mallID int, sortKey *string, limit, offset *uint) ([]*Shop, 
 	`, mallID)
 	return shops, totalCount
 }
-func GetShopsByIds(shopIDs []int, sortKey *string, limit, offset *uint) ([]*Shop, int) {
+func GetShopsByIds(shopIDs []int) ([]*Shop, int) {
 	if len(shopIDs) == 0 {
 		return nil, 0
 	}
-	orderBy := SHOP_SORT_KEYS.CorrespondingOrderBy(sortKey)
-	shops := ShopsQuery(fmt.Sprintf(`
+	shops := ShopsQuery(`
 	SELECT
 	  s.id,
 	  s.name,
-	  s.phone,
 	  s.logo_small,
 	  s.logo_large,
-	  s.score
+	  s.score,
+	  s.malls_count
 	FROM shop s
-	WHERE s.id = ANY($3)
-	ORDER BY %s
-	LIMIT $1
-	OFFSET $2
-	`, orderBy), limit, offset, pq.Array(shopIDs))
+	WHERE s.id = ANY($1)
+	`, pq.Array(shopIDs))
 	totalCount := countQuery(`
 	SELECT
 	  count(*) total_count
@@ -608,10 +604,10 @@ func GetShopsByName(name string, cityID *int, sortKey *string, limit, offset *ui
 		FROM (SELECT DISTINCT ON (s.id)
 				s.id,
 				s.name,
-				s.phone,
 				s.logo_small,
 				s.logo_large,
-				s.score
+				s.score,
+				s.malls_count
 			  FROM shop s
 				JOIN shop_name sn ON s.id = sn.shop_id
 				JOIN mall_shop ms ON s.id = ms.shop_id
@@ -635,10 +631,10 @@ func GetShopsByName(name string, cityID *int, sortKey *string, limit, offset *ui
 		FROM (SELECT DISTINCT ON (s.id)
 				s.id,
 				s.name,
-				s.phone,
 				s.logo_small,
 				s.logo_large,
-				s.score
+				s.score,
+				s.malls_count
 			  FROM shop s
 				JOIN shop_name sn ON s.id = sn.shop_id
 			  WHERE sn.name ILIKE '%%' || $3 || '%%') s
@@ -665,10 +661,10 @@ func GetShopsByCategory(categoryID int, cityID *int, sortKey *string, limit, off
 		FROM (SELECT DISTINCT ON (s.id)
 				s.id,
 				s.name,
-				s.phone,
 				s.logo_small,
 				s.logo_large,
-				s.score
+				s.score,
+				s.malls_count
 			  FROM shop s
 				JOIN shop_category sc ON s.id = sc.shop_id
 				JOIN mall_shop ms ON s.id = ms.shop_id
@@ -691,10 +687,10 @@ func GetShopsByCategory(categoryID int, cityID *int, sortKey *string, limit, off
 		SELECT
 		  s.id,
 		  s.name,
-		  s.phone,
 		  s.logo_small,
 		  s.logo_large,
-		  s.score
+		  s.score,
+		  s.malls_count
 		FROM shop s
 		  JOIN shop_category sc ON s.id = sc.shop_id
 		WHERE sc.category_id = $3
@@ -721,7 +717,7 @@ func ShopsQuery(query string, args ...interface{}) []*Shop {
 	var shops []*Shop
 	for rows.Next() {
 		s := Shop{}
-		err = rows.Scan(&s.ID, &s.Name, &s.Phone, &s.LogoSmall, &s.LogoLarge, &s.Score)
+		err = rows.Scan(&s.ID, &s.Name, &s.LogoSmall, &s.LogoLarge, &s.Score, &s.MallsCount)
 		if err != nil {
 			moduleLog.Panicf("Error during scaning shop row: %s", err)
 		}

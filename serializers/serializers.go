@@ -42,15 +42,16 @@ type MallDetails struct {
 	SubwayStation *SubwayStation `json:"subway_staion"`
 }
 type ShopBase struct {
-	ID    int    `json:"id"`
-	Name  string `json:"name"`
-	Phone string `json:"phone"`
-	Logo  *Logo  `json:"logo"`
-	Score int    `json:"score"`
+	ID         int    `json:"id"`
+	Name       string `json:"name"`
+	Logo       *Logo  `json:"logo"`
+	Score      int    `json:"score"`
+	MallsCount int    `json:"malls_count"`
 }
 type ShopDetails struct {
 	*ShopBase
-	Site string `json:"site"`
+	Phone string `json:"phone"`
+	Site  string `json:"site"`
 }
 
 func serializeMallBase(mall *models.Mall) *MallBase {
@@ -72,14 +73,14 @@ func serializeMallBase(mall *models.Mall) *MallBase {
 }
 func serializeShopBase(shop *models.Shop) *ShopBase {
 	serializer := &ShopBase{
-		ID:    shop.ID,
-		Name:  shop.Name,
-		Phone: shop.Phone,
+		ID:   shop.ID,
+		Name: shop.Name,
 		Logo: &Logo{
 			Large: shop.LogoLarge,
 			Small: shop.LogoSmall,
 		},
-		Score: shop.Score,
+		Score:      shop.Score,
+		MallsCount: shop.MallsCount,
 	}
 	return serializer
 }
@@ -115,6 +116,7 @@ func SerializeMall(mall *models.Mall) *MallDetails {
 func SerializeShop(shop *models.Shop) *ShopDetails {
 	serializer := &ShopDetails{
 		ShopBase: serializeShopBase(shop),
+		Phone:    shop.Phone,
 		Site:     shop.Site,
 	}
 	return serializer

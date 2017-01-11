@@ -119,7 +119,7 @@
 
 **Mall Object**
 ----
-```javascript
+```json
 {
   "id": 228,
   "name": "Some name",
@@ -217,7 +217,7 @@
 
 **Shop Object**
 ----
-```javascript
+```json
 {
   "id": 228,
   "name": "Some name",
@@ -234,7 +234,7 @@
 
 **Category Object**
 ----
-```javascript
+```json
 {
   "id": 228,
   "name": "Some name",
@@ -248,7 +248,7 @@
 
 **City Object**
 ----
-```javascript
+```json
 {
   "id": 228,
   "name": "Some name"
