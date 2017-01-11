@@ -543,7 +543,55 @@ func GetShopDetails(shopID int) *Shop {
 
 }
 func GetShops(cityID *int, sortKey *string, limit, offset *uint) ([]*Shop, int) {
-	return nil, 0
+	var shops []*Shop
+	var totalCount int
+	orderBy := SHOP_SORT_KEYS.CorrespondingOrderBy(sortKey)
+	if cityID != nil {
+		shops = ShopsQuery(fmt.Sprintf(`
+		SELECT
+		  s.id,
+		  s.name,
+		  s.logo_small,
+		  s.logo_large,
+		  s.score,
+		  s.malls_count
+		FROM shop s
+		  JOIN mall_shop ms ON s.id = ms.shop_id
+		  JOIN mall m ON ms.mall_id = m.id
+		WHERE m.city_id = $3
+		ORDER BY %s
+		LIMIT $1
+		OFFSET $2
+		`, orderBy), limit, offset, *cityID)
+		totalCount = countQuery(`
+		SELECT
+		  count(*) total_count
+		FROM shop s
+		  JOIN mall_shop ms ON s.id = ms.shop_id
+		  JOIN mall m ON ms.mall_id = m.id
+		WHERE m.city_id = $1
+		`, *cityID)
+	} else {
+		shops = ShopsQuery(fmt.Sprintf(`
+		SELECT
+		  s.id,
+		  s.name,
+		  s.logo_small,
+		  s.logo_large,
+		  s.score,
+		  s.malls_count
+		FROM shop s
+		ORDER BY %s
+		LIMIT $1
+		OFFSET $2
+		`, orderBy), limit, offset)
+		totalCount = countQuery(`
+		SELECT
+		  count(*) total_count
+		FROM shop s
+		`)
+	}
+	return shops, totalCount
 }
 func GetShopsByMall(mallID int, sortKey *string, limit, offset *uint) ([]*Shop, int) {
 	orderBy := SHOP_SORT_KEYS.CorrespondingOrderBy(sortKey)
@@ -571,7 +619,7 @@ func GetShopsByMall(mallID int, sortKey *string, limit, offset *uint) ([]*Shop, 
 	`, mallID)
 	return shops, totalCount
 }
-func GetShopsByIds(shopIDs []int) ([]*Shop, int) {
+func GetShopsByIds(shopIDs []int, cityID *int) ([]*Shop, int) {
 	if len(shopIDs) == 0 {
 		return nil, 0
 	}
@@ -595,9 +643,9 @@ func GetShopsByIds(shopIDs []int) ([]*Shop, int) {
 	return shops, totalCount
 }
 func GetShopsByName(name string, cityID *int, sortKey *string, limit, offset *uint) ([]*Shop, int) {
-	orderBy := SHOP_SORT_KEYS.CorrespondingOrderBy(sortKey)
 	var shops []*Shop
 	var totalCount int
+	orderBy := SHOP_SORT_KEYS.CorrespondingOrderBy(sortKey)
 	if cityID != nil {
 		shops = ShopsQuery(fmt.Sprintf(`
 		SELECT *
@@ -652,9 +700,9 @@ func GetShopsByName(name string, cityID *int, sortKey *string, limit, offset *ui
 	return shops, totalCount
 }
 func GetShopsByCategory(categoryID int, cityID *int, sortKey *string, limit, offset *uint) ([]*Shop, int) {
-	orderBy := SHOP_SORT_KEYS.CorrespondingOrderBy(sortKey)
 	var shops []*Shop
 	var totalCount int
+	orderBy := SHOP_SORT_KEYS.CorrespondingOrderBy(sortKey)
 	if cityID != nil {
 		shops = ShopsQuery(fmt.Sprintf(`
 		SELECT *

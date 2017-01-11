@@ -159,7 +159,7 @@ func ShopsList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	var totalCount int
 	if formData.Ids != nil {
 		shopIDs := formData.Ids
-		shops, totalCount = models.GetShopsByIds(shopIDs)
+		shops, totalCount = models.GetShopsByIds(shopIDs, cityID)
 	} else if formData.Mall != nil {
 		mallID := *formData.Mall
 		if !models.IsMallExists(mallID) {
