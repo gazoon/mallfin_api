@@ -599,10 +599,117 @@ func GetShopsByIds(shopIDs []int, sortKey *string, limit, offset *uint) ([]*Shop
 	return shops, totalCount
 }
 func GetShopsByName(name string, cityID *int, sortKey *string, limit, offset *uint) ([]*Shop, int) {
-	return nil, 0
+	orderBy := SHOP_SORT_KEYS.CorrespondingOrderBy(sortKey)
+	var shops []*Shop
+	var totalCount int
+	if cityID != nil {
+		shops = ShopsQuery(fmt.Sprintf(`
+		SELECT *
+		FROM (SELECT DISTINCT ON (s.id)
+				s.id,
+				s.name,
+				s.phone,
+				s.logo_small,
+				s.logo_large,
+				s.score
+			  FROM shop s
+				JOIN shop_name sn ON s.id = sn.shop_id
+				JOIN mall_shop ms ON s.id = ms.shop_id
+				JOIN mall m ON ms.mall_id = m.id
+			  WHERE sn.name ILIKE '%%' || $3 || '%%' AND m.city_id = $4) s
+		ORDER BY %s
+		LIMIT $1
+		OFFSET $2
+		`, orderBy), limit, offset, name, cityID)
+		totalCount = countQuery(`
+		SELECT count(DISTINCT s.id) AS total_count
+		FROM shop s
+		  JOIN shop_name sn ON s.id = sn.shop_id
+		  JOIN mall_shop ms ON s.id = ms.shop_id
+		  JOIN mall m ON ms.mall_id = m.id
+		WHERE sn.name ILIKE '%' || $1 || '%' AND m.city_id = $2
+		`, name, cityID)
+	} else {
+		shops = ShopsQuery(fmt.Sprintf(`
+		SELECT *
+		FROM (SELECT DISTINCT ON (s.id)
+				s.id,
+				s.name,
+				s.phone,
+				s.logo_small,
+				s.logo_large,
+				s.score
+			  FROM shop s
+				JOIN shop_name sn ON s.id = sn.shop_id
+			  WHERE sn.name ILIKE '%%' || $3 || '%%') s
+		ORDER BY %s
+		LIMIT $1
+		OFFSET $2
+		`, orderBy), limit, offset, name)
+		totalCount = countQuery(`
+		SELECT count(DISTINCT s.id) total_count
+		FROM shop s
+		  JOIN shop_name sn ON s.id = sn.shop_id
+		WHERE sn.name ILIKE '%' || $1 || '%'
+		`, name)
+	}
+	return shops, totalCount
 }
 func GetShopsByCategory(categoryID int, cityID *int, sortKey *string, limit, offset *uint) ([]*Shop, int) {
-	return nil, 0
+	orderBy := SHOP_SORT_KEYS.CorrespondingOrderBy(sortKey)
+	var shops []*Shop
+	var totalCount int
+	if cityID != nil {
+		shops = ShopsQuery(fmt.Sprintf(`
+		SELECT *
+		FROM (SELECT DISTINCT ON (s.id)
+				s.id,
+				s.name,
+				s.phone,
+				s.logo_small,
+				s.logo_large,
+				s.score
+			  FROM shop s
+				JOIN shop_category sc ON s.id = sc.shop_id
+				JOIN mall_shop ms ON s.id = ms.shop_id
+				JOIN mall m ON ms.mall_id = m.id
+			  WHERE sc.category_id = $3 AND m.city_id = $4) s
+		ORDER BY %s
+		LIMIT $1
+		OFFSET $2
+	`, orderBy), limit, offset, categoryID, *cityID)
+		totalCount = countQuery(`
+		SELECT count(DISTINCT s.id) total_count
+		FROM shop s
+		  JOIN shop_category sc ON s.id = sc.shop_id
+		  JOIN mall_shop ms ON s.id = ms.shop_id
+		  JOIN mall m ON ms.mall_id = m.id
+		WHERE sc.category_id = $1 AND m.city_id = $2
+		`, categoryID, *cityID)
+	} else {
+		shops = ShopsQuery(fmt.Sprintf(`
+		SELECT
+		  s.id,
+		  s.name,
+		  s.phone,
+		  s.logo_small,
+		  s.logo_large,
+		  s.score
+		FROM shop s
+		  JOIN shop_category sc ON s.id = sc.shop_id
+		WHERE sc.category_id = $3
+		ORDER BY %s
+		LIMIT $1
+		OFFSET $2
+		`, orderBy), limit, offset, categoryID)
+		totalCount = countQuery(`
+		SELECT count(*) total_count
+		FROM shop s
+		  JOIN shop_category sc ON s.id = sc.shop_id
+		WHERE sc.category_id = $1
+		`, categoryID)
+	}
+	return shops, totalCount
 }
 func ShopsQuery(query string, args ...interface{}) []*Shop {
 	conn := db.GetConnection()

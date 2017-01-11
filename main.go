@@ -27,15 +27,7 @@ func recoveryMiddleware(w http.ResponseWriter, r *http.Request, next http.Handle
 	}()
 	next(w, r)
 }
-func f(args ...interface{}) {
-	fmt.Println(args)
-	f2(args...)
-}
-func f2(args ...interface{}) {
-	fmt.Println(args)
-}
 func someTests() {
-	f(2, 3)
 }
 func main() {
 	someTests()
