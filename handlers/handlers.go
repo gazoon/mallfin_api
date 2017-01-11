@@ -79,6 +79,51 @@ func (sf *shopsListForm) Validate(req *http.Request, errs binding.Errors) bindin
 	return errs
 }
 
+type shopDetailsForm struct {
+	City *int
+}
+
+func (cf *shopDetailsForm) FieldMap(req *http.Request) binding.FieldMap {
+	return binding.FieldMap{
+		&cf.City: "city",
+	}
+}
+
+type categoriesListForm struct {
+	City *int
+	Shop *int
+	Ids  []int
+	Sort *string
+}
+
+func (cf *categoriesListForm) FieldMap(req *http.Request) binding.FieldMap {
+	return binding.FieldMap{
+		&cf.City: "city",
+		&cf.Shop: "shop",
+		&cf.Ids:  "ids",
+		&cf.Sort: "sort",
+	}
+}
+func (cf *categoriesListForm) Validate(req *http.Request, errs binding.Errors) binding.Errors {
+	if !models.CATEGORY_SORT_KEYS.IsValid(cf.Sort) {
+		errs = append(errs, binding.Error{
+			FieldNames: []string{"sort"},
+			Message:    fmt.Sprintf("Invalid sort key for list of categories, valid values: %s.", models.CATEGORY_SORT_KEYS.FmtKeys()),
+		})
+	}
+	return errs
+}
+
+type categoryDetailsForm struct {
+	City *int
+}
+
+func (cf *categoryDetailsForm) FieldMap(req *http.Request) binding.FieldMap {
+	return binding.FieldMap{
+		&cf.City: "city",
+	}
+}
+
 func MallsList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	formData := mallsListForm{}
 	errs := binding.Form(r, &formData)
@@ -121,8 +166,8 @@ func MallsList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	} else {
 		malls, totalCount = models.GetMalls(cityID, sortKey, limit, offset)
 	}
-	mallsSerialized := serializers.SerializeMalls(malls)
-	listResponse(w, mallsSerialized, totalCount)
+	serialized := serializers.SerializeMalls(malls)
+	listResponse(w, serialized, totalCount)
 }
 func MallDetails(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	mallID, err := ps.ByNameInt("id")
@@ -135,8 +180,8 @@ func MallDetails(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		errorResponse(w, MALL_NOT_FOUND, "Mall with such id does not exists", http.StatusNotFound)
 		return
 	}
-	mallSerialized := serializers.SerializeMall(mall)
-	objectResponse(w, mallSerialized)
+	serialized := serializers.SerializeMall(mall)
+	objectResponse(w, serialized)
 }
 func ShopsList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	formData := shopsListForm{}
@@ -163,7 +208,7 @@ func ShopsList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	} else if formData.Mall != nil {
 		mallID := *formData.Mall
 		if !models.IsMallExists(mallID) {
-			errorResponse(w, MALL_NOT_FOUND, "mall with such id does not exists.", http.StatusNotFound)
+			errorResponse(w, MALL_NOT_FOUND, "Mall with such id does not exists.", http.StatusNotFound)
 			return
 		}
 		shops, totalCount = models.GetShopsByMall(mallID, sortKey, limit, offset)
@@ -180,21 +225,81 @@ func ShopsList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	} else {
 		shops, totalCount = models.GetShops(cityID, sortKey, limit, offset)
 	}
-	shopsSerialized := serializers.SerializeShops(shops)
-	listResponse(w, shopsSerialized, totalCount)
-
+	serialized := serializers.SerializeShops(shops)
+	listResponse(w, serialized, totalCount)
 }
 func ShopDetails(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	formData := shopDetailsForm{}
+	errs := binding.Form(r, &formData)
+	if errs != nil {
+		errorResponse(w, INVALID_REQUEST_DATA, errs.Error(), http.StatusBadRequest)
+		return
+	}
 	shopID, err := ps.ByNameInt("id")
 	if err != nil {
 		errorResponse(w, INVALID_REQUEST_DATA, err.Error(), http.StatusBadRequest)
 		return
 	}
-	shop := models.GetShopDetails(shopID)
+	cityID := formData.City
+	shop := models.GetShopDetails(shopID, cityID)
 	if shop == nil {
 		errorResponse(w, SHOP_NOT_FOUND, "Shop with such id does not exists", http.StatusNotFound)
 		return
 	}
-	shopSerialized := serializers.SerializeShop(shop)
-	objectResponse(w, shopSerialized)
+	serialized := serializers.SerializeShop(shop)
+	objectResponse(w, serialized)
+}
+func CategoriesList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	formData := categoriesListForm{}
+	errs := binding.Form(r, &formData)
+	if errs != nil {
+		errorResponse(w, INVALID_REQUEST_DATA, errs.Error(), http.StatusBadRequest)
+		return
+	}
+	sortKey := formData.Sort
+	cityID := formData.City
+	if cityID != nil {
+		if !models.IsCityExists(*cityID) {
+			errorResponse(w, CITY_NOT_FOUND, "City with such id does not exists.", http.StatusNotFound)
+			return
+		}
+	}
+	var categories []*models.Category
+	var totalCount int
+	if formData.Ids != nil {
+		categoryIDs := formData.Ids
+		categories, totalCount = models.GetCategoriesByIds(categoryIDs, cityID)
+	} else if formData.Shop != nil {
+		shopID := *formData.Shop
+		if !models.IsShopExists(shopID) {
+			errorResponse(w, SHOP_NOT_FOUND, "Shop with such id does not exists.", http.StatusNotFound)
+			return
+		}
+		categories, totalCount = models.GetCategoriesByShop(shopID, cityID, sortKey)
+	} else {
+		categories, totalCount = models.GetCategories(cityID, sortKey)
+	}
+	serialized := serializers.SerializeCategories(categories)
+	listResponse(w, serialized, totalCount)
+}
+func CategoryDetails(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	formData := categoryDetailsForm{}
+	errs := binding.Form(r, &formData)
+	if errs != nil {
+		errorResponse(w, INVALID_REQUEST_DATA, errs.Error(), http.StatusBadRequest)
+		return
+	}
+	categoryID, err := ps.ByNameInt("id")
+	if err != nil {
+		errorResponse(w, INVALID_REQUEST_DATA, err.Error(), http.StatusBadRequest)
+		return
+	}
+	cityID := formData.City
+	category := models.GetCategoryDetails(categoryID, cityID)
+	if category == nil {
+		errorResponse(w, CATEGORY_NOT_FOUND, "Category with such id does not exists", http.StatusNotFound)
+		return
+	}
+	serialized := serializers.SerializeCategory(category)
+	objectResponse(w, serialized)
 }

@@ -53,6 +53,15 @@ type ShopDetails struct {
 	Phone string `json:"phone"`
 	Site  string `json:"site"`
 }
+type CategoryBase struct {
+	ID         int    `json:"id"`
+	Name       string `json:"name"`
+	Logo       *Logo  `json:"logo"`
+	ShopsCount int    `json:"shops_count"`
+}
+type CategoryDetails struct {
+	*CategoryBase
+}
 
 func serializeMallBase(mall *models.Mall) *MallBase {
 	serializer := &MallBase{
@@ -81,6 +90,18 @@ func serializeShopBase(shop *models.Shop) *ShopBase {
 		},
 		Score:      shop.Score,
 		MallsCount: shop.MallsCount,
+	}
+	return serializer
+}
+func serializeCategoryBase(category *models.Category) *CategoryBase {
+	serializer := &CategoryBase{
+		ID:   category.ID,
+		Name: category.Name,
+		Logo: &Logo{
+			Large: category.LogoLarge,
+			Small: category.LogoSmall,
+		},
+		ShopsCount: category.ShopsCount,
 	}
 	return serializer
 }
@@ -121,6 +142,12 @@ func SerializeShop(shop *models.Shop) *ShopDetails {
 	}
 	return serializer
 }
+func SerializeCategory(category *models.Category) *CategoryDetails {
+	serializer := &CategoryDetails{
+		CategoryBase: serializeCategoryBase(category),
+	}
+	return serializer
+}
 func SerializeMalls(malls []*models.Mall) []*MallBase {
 	serializers := make([]*MallBase, len(malls))
 	for i := range malls {
@@ -134,6 +161,14 @@ func SerializeShops(shops []*models.Shop) []*ShopBase {
 	for i := range shops {
 		shop := shops[i]
 		serializers[i] = serializeShopBase(shop)
+	}
+	return serializers
+}
+func SerializeCategories(categories []*models.Category) []*CategoryBase {
+	serializers := make([]*CategoryBase, len(categories))
+	for i := range categories {
+		category := categories[i]
+		serializers[i] = serializeCategoryBase(category)
 	}
 	return serializers
 }

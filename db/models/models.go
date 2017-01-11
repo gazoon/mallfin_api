@@ -43,8 +43,9 @@ type SortKeyToOrderBy struct {
 }
 
 var (
-	MALL_DEFAULT_ORDER_BY = &OrderBy{Column: "m.id", Reverse: false}
-	SHOP_DEFAULT_ORDER_BY = &OrderBy{Column: "s.id", Reverse: false}
+	MALL_DEFAULT_ORDER_BY     = &OrderBy{Column: "m.id", Reverse: false}
+	SHOP_DEFAULT_ORDER_BY     = &OrderBy{Column: "s.id", Reverse: false}
+	CATEGORY_DEFAULT_ORDER_BY = &OrderBy{Column: "c.id", Reverse: false}
 
 	MALL_SORT_KEYS = &SortKeyToOrderBy{
 		dict: map[string]*OrderBy{
@@ -69,6 +70,17 @@ var (
 			"-malls_count": {Column: "s.malls_count", Reverse: true},
 		},
 		defaultOrderBy: SHOP_DEFAULT_ORDER_BY,
+	}
+	CATEGORY_SORT_KEYS = &SortKeyToOrderBy{
+		dict: map[string]*OrderBy{
+			"id":           CATEGORY_DEFAULT_ORDER_BY,
+			"-id":          {Column: "c.id", Reverse: true},
+			"name":         {Column: "c.name", Reverse: false},
+			"-name":        {Column: "c.name", Reverse: true},
+			"shops_count":  {Column: "c.shops_count", Reverse: false},
+			"-shops_count": {Column: "c.shops_count", Reverse: true},
+		},
+		defaultOrderBy: CATEGORY_DEFAULT_ORDER_BY,
 	}
 )
 
@@ -120,6 +132,7 @@ type Mall struct {
 	SubwayName   *string
 	WorkingHours []*WorkPeriod
 }
+
 type Shop struct {
 	ID         int
 	Name       string
@@ -130,6 +143,14 @@ type Shop struct {
 	//Details
 	Phone string
 	Site  string
+}
+
+type Category struct {
+	ID         int
+	Name       string
+	LogoLarge  string
+	LogoSmall  string
+	ShopsCount int
 }
 
 func ExistsQuery(query string, args ...interface{}) bool {
@@ -525,7 +546,7 @@ func MallsQuery(query string, args ...interface{}) []*Mall {
 	}
 	return malls
 }
-func GetShopDetails(shopID int) *Shop {
+func GetShopDetails(shopID int, cityID *int) *Shop {
 	conn := db.GetConnection()
 	shop := Shop{}
 	err := conn.QueryRow(`
@@ -781,6 +802,106 @@ func ShopsQuery(query string, args ...interface{}) []*Shop {
 	err = rows.Err()
 	if err != nil {
 		moduleLog.Panicf("Error after scaning shops rows: %s", err)
+	}
+	return shops
+}
+func GetCategoryDetails(categoryID int, cityID *int) *Category {
+	conn := db.GetConnection()
+	category := Category{}
+	err := conn.QueryRow(`
+	SELECT
+	  c.id,
+	  c.name,
+	  c.logo_small,
+	  c.logo_large,
+	  c.shops_count
+	FROM category c
+	WHERE c.id = $1
+	`, categoryID).Scan(&category.ID, &category.Name, &category.LogoSmall, &category.LogoLarge, &category.ShopsCount)
+	if err == sql.ErrNoRows {
+		return nil
+	} else if err != nil {
+		moduleLog.WithField("category", categoryID).Panicf("Cannot get category by ID: %s", err)
+	}
+	return &category
+}
+func GetCategories(cityID *int, sortKey *string) ([]*Category, int) {
+	orderBy := CATEGORY_SORT_KEYS.CorrespondingOrderBy(sortKey)
+	categories := CategoriesQuery(orderBy.Compile(`
+	SELECT
+	  c.id,
+	  c.name,
+	  c.logo_small,
+	  c.logo_large,
+	  c.shops_count
+	FROM category c
+	ORDER BY %s
+	`))
+	totalCount := countQuery(`
+	SELECT count(*) total_count
+	FROM category c
+	`)
+	return categories, totalCount
+}
+func GetCategoriesByIds(categoryIDs []int, cityID *int) ([]*Category, int) {
+	categories := CategoriesQuery(`
+	SELECT
+	  c.id,
+	  c.name,
+	  c.logo_small,
+	  c.logo_large,
+	  c.shops_count
+	FROM category c
+	WHERE c.id = ANY ($1)
+	`, pq.Array(categoryIDs))
+	totalCount := countQuery(`
+	SELECT count(*) total_count
+	FROM category c
+	WHERE c.id = ANY ($1)
+	`, pq.Array(categoryIDs))
+	return categories, totalCount
+}
+func GetCategoriesByShop(shopID int, cityID *int, sortKey *string) ([]*Category, int) {
+	orderBy := CATEGORY_SORT_KEYS.CorrespondingOrderBy(sortKey)
+	categories := CategoriesQuery(orderBy.Compile(`
+	SELECT
+	  c.id,
+	  c.name,
+	  c.logo_small,
+	  c.logo_large,
+	  c.shops_count
+	FROM category c
+	  JOIN shop_category sc ON c.id = sc.category_id
+	WHERE sc.shop_id = $1
+	ORDER BY %s
+	`), shopID)
+	totalCount := countQuery(`
+	SELECT count(*) total_count
+	FROM category c
+	  JOIN shop_category sc ON c.id = sc.category_id
+	WHERE sc.shop_id = $1
+	`, shopID)
+	return categories, totalCount
+}
+func CategoriesQuery(query string, args ...interface{}) []*Category {
+	conn := db.GetConnection()
+	rows, err := conn.Query(query, args...)
+	if err != nil {
+		moduleLog.Panicf("Cannot get categories rows: %s", err)
+	}
+	defer rows.Close()
+	var shops []*Category
+	for rows.Next() {
+		c := Category{}
+		err = rows.Scan(&c.ID, &c.Name, &c.LogoSmall, &c.LogoLarge, &c.ShopsCount)
+		if err != nil {
+			moduleLog.Panicf("Error during scaning category row: %s", err)
+		}
+		shops = append(shops, &c)
+	}
+	err = rows.Err()
+	if err != nil {
+		moduleLog.Panicf("Error after scaning categories rows: %s", err)
 	}
 	return shops
 }

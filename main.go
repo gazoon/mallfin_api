@@ -46,6 +46,8 @@ func main() {
 	r.GET("/malls/:id/", handlers.MallDetails)
 	r.GET("/shops/", handlers.ShopsList)
 	r.GET("/shops/:id/", handlers.ShopDetails)
+	r.GET("/categories/", handlers.CategoriesList)
+	r.GET("/categories/:id/", handlers.CategoryDetails)
 
 	n := negroni.New()
 	n.Use(&negroni.Logger{ALogger: log.StandardLogger()})

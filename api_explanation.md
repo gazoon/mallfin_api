@@ -78,6 +78,8 @@
 
 * **Query Params:**
 
+    city [integer] - city id
+
     shop [integer] - shop id, list of categories for this shop
 
     ids [list] - list of specific category ids
@@ -139,7 +141,8 @@
     "name": "Кантимировская"
   },
   "day_and_night": false, //details
-  "working_hours": [
+  "shops_count": 44,
+  "working_hours": [ //details
     {
       "closing": {
         "day": 0,
@@ -221,9 +224,10 @@
 {
   "id": 228,
   "name": "Some name",
-  "site": "http://domain.com/",
-  "phone": "+79250741413",
+  "site": "http://domain.com/", //detials
+  "phone": "+79250741413", //details
   "score": 400,
+  "malls_count",
   "logo": {
     "large": "https://storage.domain.com/path/to/large/logo.png",
     "small": "https://storage.domain.com/path/to/small/logo.png"
@@ -238,6 +242,7 @@
 {
   "id": 228,
   "name": "Some name",
+  "shops_count",
   "logo": {
     "large": "https://storage.domain.com/path/to/large/logo.png",
     "small": "https://storage.domain.com/path/to/small/logo.png"
