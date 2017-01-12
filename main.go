@@ -44,6 +44,7 @@ func main() {
 	r := httprouter.New()
 	r.GET("/malls/", handlers.MallsList)
 	r.GET("/malls/:id/", handlers.MallDetails)
+	r.GET("/current_mall/", handlers.CurrentMall)
 	r.GET("/shops/", handlers.ShopsList)
 	r.GET("/shops/:id/", handlers.ShopDetails)
 	r.GET("/categories/", handlers.CategoriesList)

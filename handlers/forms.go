@@ -18,22 +18,22 @@ type mallsListForm struct {
 	Offset        *uint
 }
 
-func (mf *mallsListForm) FieldMap(req *http.Request) binding.FieldMap {
+func (mlf *mallsListForm) FieldMap(req *http.Request) binding.FieldMap {
 	return binding.FieldMap{
-		&mf.City:          "city",
-		&mf.Shop:          "shop",
-		&mf.SubwayStation: "subway_station",
-		&mf.Query:         "query",
-		&mf.Ids:           "ids",
-		&mf.Sort:          "sort",
-		&mf.Limit:         "limit",
-		&mf.Offset:        "offset",
+		&mlf.City:          "city",
+		&mlf.Shop:          "shop",
+		&mlf.SubwayStation: "subway_station",
+		&mlf.Query:         "query",
+		&mlf.Ids:           "ids",
+		&mlf.Sort:          "sort",
+		&mlf.Limit:         "limit",
+		&mlf.Offset:        "offset",
 	}
 }
 
-func (mf *mallsListForm) Validate(req *http.Request, errs binding.Errors) binding.Errors {
+func (mlf *mallsListForm) Validate(req *http.Request, errs binding.Errors) binding.Errors {
 	sortKeys := models.MALL_SORT_KEYS
-	if !sortKeys.IsValid(mf.Sort) {
+	if !sortKeys.IsValid(mlf.Sort) {
 		errs = append(errs, binding.Error{
 			FieldNames: []string{"sort"},
 			Message:    fmt.Sprintf("Invalid sort key for list of malls, valid values: %s.", sortKeys.FmtKeys()),
@@ -53,22 +53,22 @@ type shopsListForm struct {
 	Offset   *uint
 }
 
-func (sf *shopsListForm) FieldMap(req *http.Request) binding.FieldMap {
+func (slf *shopsListForm) FieldMap(req *http.Request) binding.FieldMap {
 	return binding.FieldMap{
-		&sf.City:     "city",
-		&sf.Mall:     "mall",
-		&sf.Category: "category",
-		&sf.Query:    "query",
-		&sf.Ids:      "ids",
-		&sf.Sort:     "sort",
-		&sf.Limit:    "limit",
-		&sf.Offset:   "offset",
+		&slf.City:     "city",
+		&slf.Mall:     "mall",
+		&slf.Category: "category",
+		&slf.Query:    "query",
+		&slf.Ids:      "ids",
+		&slf.Sort:     "sort",
+		&slf.Limit:    "limit",
+		&slf.Offset:   "offset",
 	}
 }
 
-func (sf *shopsListForm) Validate(req *http.Request, errs binding.Errors) binding.Errors {
+func (slf *shopsListForm) Validate(req *http.Request, errs binding.Errors) binding.Errors {
 	sortKeys := models.SHOP_SORT_KEYS
-	if !sortKeys.IsValid(sf.Sort) {
+	if !sortKeys.IsValid(slf.Sort) {
 		errs = append(errs, binding.Error{
 			FieldNames: []string{"sort"},
 			Message:    fmt.Sprintf("Invalid sort key for list of shops, valid values: %s.", sortKeys.FmtKeys()),
@@ -83,11 +83,11 @@ type shopDetailsForm struct {
 	LocationLon *float64
 }
 
-func (cf *shopDetailsForm) FieldMap(req *http.Request) binding.FieldMap {
+func (sdf *shopDetailsForm) FieldMap(req *http.Request) binding.FieldMap {
 	return binding.FieldMap{
-		&cf.City:        "city",
-		&cf.LocationLat: "location_lat",
-		&cf.LocationLon: "location_lon",
+		&sdf.City:        "city",
+		&sdf.LocationLat: "location_lat",
+		&sdf.LocationLon: "location_lon",
 	}
 }
 
@@ -98,17 +98,17 @@ type categoriesListForm struct {
 	Sort *string
 }
 
-func (cf *categoriesListForm) FieldMap(req *http.Request) binding.FieldMap {
+func (clf *categoriesListForm) FieldMap(req *http.Request) binding.FieldMap {
 	return binding.FieldMap{
-		&cf.City: "city",
-		&cf.Shop: "shop",
-		&cf.Ids:  "ids",
-		&cf.Sort: "sort",
+		&clf.City: "city",
+		&clf.Shop: "shop",
+		&clf.Ids:  "ids",
+		&clf.Sort: "sort",
 	}
 }
-func (cf *categoriesListForm) Validate(req *http.Request, errs binding.Errors) binding.Errors {
+func (clf *categoriesListForm) Validate(req *http.Request, errs binding.Errors) binding.Errors {
 	sortKeys := models.CATEGORY_SORT_KEYS
-	if !sortKeys.IsValid(cf.Sort) {
+	if !sortKeys.IsValid(clf.Sort) {
 		errs = append(errs, binding.Error{
 			FieldNames: []string{"sort"},
 			Message:    fmt.Sprintf("Invalid sort key for list of categories, valid values: %s.", sortKeys.FmtKeys()),
@@ -121,9 +121,9 @@ type categoryDetailsForm struct {
 	City *int
 }
 
-func (cf *categoryDetailsForm) FieldMap(req *http.Request) binding.FieldMap {
+func (cdf *categoryDetailsForm) FieldMap(req *http.Request) binding.FieldMap {
 	return binding.FieldMap{
-		&cf.City: "city",
+		&cdf.City: "city",
 	}
 }
 
@@ -132,19 +132,37 @@ type citiesListForm struct {
 	Sort  *string
 }
 
-func (cf *citiesListForm) FieldMap(req *http.Request) binding.FieldMap {
+func (clf *citiesListForm) FieldMap(req *http.Request) binding.FieldMap {
 	return binding.FieldMap{
-		&cf.Query: "query",
-		&cf.Sort:  "sort",
+		&clf.Query: "query",
+		&clf.Sort:  "sort",
 	}
 }
-func (cf *citiesListForm) Validate(req *http.Request, errs binding.Errors) binding.Errors {
+func (clf *citiesListForm) Validate(req *http.Request, errs binding.Errors) binding.Errors {
 	sortKeys := models.CITY_SORT_KEYS
-	if !sortKeys.IsValid(cf.Sort) {
+	if !sortKeys.IsValid(clf.Sort) {
 		errs = append(errs, binding.Error{
 			FieldNames: []string{"sort"},
 			Message:    fmt.Sprintf("Invalid sort key for list of cities, valid values: %s.", sortKeys.FmtKeys()),
 		})
 	}
 	return errs
+}
+
+type currentMallForm struct {
+	LocationLat float64
+	LocationLon float64
+}
+
+func (cmf *currentMallForm) FieldMap(req *http.Request) binding.FieldMap {
+	return binding.FieldMap{
+		&cmf.LocationLat: binding.Field{
+			Form:     "location_lat",
+			Required: true,
+		},
+		&cmf.LocationLon: binding.Field{
+			Form:     "location_lon",
+			Required: true,
+		},
+	}
 }

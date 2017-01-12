@@ -69,6 +69,9 @@ type CityBase struct {
 }
 
 func serializeMallBase(mall *models.Mall) *MallBase {
+	if mall == nil {
+		return nil
+	}
 	serializer := &MallBase{
 		ID:    mall.ID,
 		Name:  mall.Name,
@@ -86,6 +89,9 @@ func serializeMallBase(mall *models.Mall) *MallBase {
 	return serializer
 }
 func serializeShopBase(shop *models.Shop) *ShopBase {
+	if shop == nil {
+		return nil
+	}
 	serializer := &ShopBase{
 		ID:   shop.ID,
 		Name: shop.Name,
@@ -99,6 +105,9 @@ func serializeShopBase(shop *models.Shop) *ShopBase {
 	return serializer
 }
 func serializeCategoryBase(category *models.Category) *CategoryBase {
+	if category == nil {
+		return nil
+	}
 	serializer := &CategoryBase{
 		ID:   category.ID,
 		Name: category.Name,
@@ -111,6 +120,9 @@ func serializeCategoryBase(category *models.Category) *CategoryBase {
 	return serializer
 }
 func serializeCityBase(city *models.City) *CityBase {
+	if city == nil {
+		return nil
+	}
 	serializer := &CityBase{
 		ID:   city.ID,
 		Name: city.Name,
@@ -118,6 +130,9 @@ func serializeCityBase(city *models.City) *CityBase {
 	return serializer
 }
 func SerializeMall(mall *models.Mall) *MallDetails {
+	if mall == nil {
+		return nil
+	}
 	workingHours := make([]*WorkPeriod, len(mall.WorkingHours))
 	for i := range mall.WorkingHours {
 		period := mall.WorkingHours[i]
@@ -147,6 +162,9 @@ func SerializeMall(mall *models.Mall) *MallDetails {
 	return serializer
 }
 func SerializeShop(shop *models.Shop) *ShopDetails {
+	if shop == nil {
+		return nil
+	}
 	serializer := &ShopDetails{
 		ShopBase:    serializeShopBase(shop),
 		Phone:       shop.Phone,
@@ -156,6 +174,9 @@ func SerializeShop(shop *models.Shop) *ShopDetails {
 	return serializer
 }
 func SerializeCategory(category *models.Category) *CategoryDetails {
+	if category == nil {
+		return nil
+	}
 	serializer := &CategoryDetails{
 		CategoryBase: serializeCategoryBase(category),
 	}

@@ -215,3 +215,22 @@ func CitiesList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	serialized := serializers.SerializeCities(cities)
 	listResponse(w, serialized, totalCount)
 }
+func CurrentMall(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	formData := currentMallForm{}
+	errs := binding.Form(r, &formData)
+	if errs != nil {
+		errorResponse(w, INVALID_REQUEST_DATA, errs.Error(), http.StatusBadRequest)
+		return
+	}
+	userLocation := &models.Location{
+		Lat: formData.LocationLat,
+		Lon: formData.LocationLon,
+	}
+	mall := models.GetMallByLocation(userLocation)
+	if mall == nil {
+		errorResponse(w, MALL_NOT_FOUND, "In this place there is no mall.", http.StatusNotFound)
+		return
+	}
+	serialized := serializers.SerializeMall(mall)
+	objectResponse(w, serialized)
+}
