@@ -218,6 +218,7 @@
   "name": "Some name",
   "site": "http://domain.com/", //detials
   "phone": "+79250741413", //details
+  "nearest_mall": 1488, //details
   "score": 400,
   "malls_count",
   "logo": {

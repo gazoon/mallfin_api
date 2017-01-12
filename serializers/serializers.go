@@ -50,8 +50,9 @@ type ShopBase struct {
 }
 type ShopDetails struct {
 	*ShopBase
-	Phone string `json:"phone"`
-	Site  string `json:"site"`
+	Phone       string `json:"phone"`
+	Site        string `json:"site"`
+	NearestMall *int   `json:"nearest_mall"`
 }
 type CategoryBase struct {
 	ID         int    `json:"id"`
@@ -77,8 +78,8 @@ func serializeMallBase(mall *models.Mall) *MallBase {
 			Small: mall.LogoSmall,
 		},
 		Location: &Location{
-			Lat: mall.LocationLat,
-			Lon: mall.LocationLon,
+			Lat: mall.Location.Lat,
+			Lon: mall.Location.Lon,
 		},
 		ShopsCount: mall.ShopsCount,
 	}
@@ -147,9 +148,10 @@ func SerializeMall(mall *models.Mall) *MallDetails {
 }
 func SerializeShop(shop *models.Shop) *ShopDetails {
 	serializer := &ShopDetails{
-		ShopBase: serializeShopBase(shop),
-		Phone:    shop.Phone,
-		Site:     shop.Site,
+		ShopBase:    serializeShopBase(shop),
+		Phone:       shop.Phone,
+		Site:        shop.Site,
+		NearestMall: shop.NearestMall,
 	}
 	return serializer
 }

@@ -78,12 +78,16 @@ func (sf *shopsListForm) Validate(req *http.Request, errs binding.Errors) bindin
 }
 
 type shopDetailsForm struct {
-	City *int
+	City        *int
+	LocationLat *float64
+	LocationLon *float64
 }
 
 func (cf *shopDetailsForm) FieldMap(req *http.Request) binding.FieldMap {
 	return binding.FieldMap{
-		&cf.City: "city",
+		&cf.City:        "city",
+		&cf.LocationLat: "location_lat",
+		&cf.LocationLon: "location_lon",
 	}
 }
 
