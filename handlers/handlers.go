@@ -234,3 +234,16 @@ func CurrentMall(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	serialized := serializers.SerializeMall(mall)
 	objectResponse(w, serialized)
 }
+func ShopsInMalls(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	formData := shopsInMallsForm{}
+	errs := binding.Form(r, &formData)
+	if errs != nil {
+		errorResponse(w, INVALID_REQUEST_DATA, errs.Error(), http.StatusBadRequest)
+		return
+	}
+	mallIDs := formData.Malls
+	shopIDs := formData.Shops
+	mallsShops := models.GetShopsInMalls(mallIDs, shopIDs)
+	serialized := serializers.SerializeShopsInMalls(mallsShops)
+	objectResponse(w, serialized)
+}

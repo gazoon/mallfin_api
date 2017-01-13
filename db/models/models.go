@@ -171,6 +171,7 @@ type City struct {
 	ID   int
 	Name string
 }
+type ShopsInMalls map[int][]int
 
 func existsQuery(query string, args ...interface{}) bool {
 	var exists bool
@@ -226,13 +227,14 @@ func IsSubwayStationExists(subwayStationID int) bool {
 	`, subwayStationID)
 	return exists
 }
-func DeleteAllMalls() {
-	conn := db.GetConnection()
-	_, err := conn.Exec(`TRUNCATE mall CASCADE`)
-	if err != nil {
-		moduleLog.Panicf("Cannot delete malls: %s", err)
-	}
-}
+
+//func DeleteAllMalls() {
+//	conn := db.GetConnection()
+//	_, err := conn.Exec(`TRUNCATE mall CASCADE`)
+//	if err != nil {
+//		moduleLog.Panicf("Cannot delete malls: %s", err)
+//	}
+//}
 
 //func CreateMall(mall *Mall) *Mall {
 //	conn := db.GetConnection()
@@ -246,6 +248,40 @@ func DeleteAllMalls() {
 //	return mall
 //
 //}
+func GetShopsInMalls(mallIDs, shopIDs []int) ShopsInMalls {
+	mallsShops := ShopsInMalls{}
+	for _, mallID := range mallIDs {
+		mallsShops[mallID] = nil
+	}
+	if len(mallIDs) == 0 || len(shopIDs) == 0 {
+		return mallsShops
+	}
+	conn := db.GetConnection()
+	rows, err := conn.Query(`
+	SELECT
+	  mall_id,
+	  shop_id
+	FROM mall_shop
+	WHERE mall_id = ANY ($1) AND shop_id = ANY ($2)
+	`, pq.Array(mallIDs), pq.Array(shopIDs))
+	if err != nil && err != sql.ErrNoRows {
+		moduleLog.Panicf("Cannot get shops in malls occurrence: %s", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var mallID, shopID int
+		err = rows.Scan(&mallID, &shopID)
+		if err != nil {
+			moduleLog.Panicf("Error during scaning shop in mall row: %s", err)
+		}
+		mallsShops[mallID] = append(mallsShops[mallID], shopID)
+	}
+	err = rows.Err()
+	if err != nil {
+		moduleLog.Panicf("Error after scaning shops in malls: %s", err)
+	}
+	return mallsShops
+}
 func GetMallWorkingHours(mallID int) []*WorkPeriod {
 	locLog := moduleLog.WithField("mall", mallID)
 	conn := db.GetConnection()

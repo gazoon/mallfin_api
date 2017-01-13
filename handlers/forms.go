@@ -166,3 +166,15 @@ func (cmf *currentMallForm) FieldMap(req *http.Request) binding.FieldMap {
 		},
 	}
 }
+
+type shopsInMallsForm struct {
+	Shops []int
+	Malls []int
+}
+
+func (smf *shopsInMallsForm) FieldMap(req *http.Request) binding.FieldMap {
+	return binding.FieldMap{
+		&smf.Shops: "shops",
+		&smf.Malls: "malls",
+	}
+}

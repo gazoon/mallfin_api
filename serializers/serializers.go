@@ -67,6 +67,10 @@ type CityBase struct {
 	ID   int    `json:"id"`
 	Name string `json:"name"`
 }
+type ShopsInMall struct {
+	MallID  int   `json:"mall"`
+	ShopIDs []int `json:"shops"`
+}
 
 func serializeMallBase(mall *models.Mall) *MallBase {
 	if mall == nil {
@@ -211,6 +215,16 @@ func SerializeCities(cities []*models.City) []*CityBase {
 	for i := range cities {
 		city := cities[i]
 		serializers[i] = serializeCityBase(city)
+	}
+	return serializers
+}
+func SerializeShopsInMalls(mallsShops models.ShopsInMalls) []*ShopsInMall {
+	serializers := []*ShopsInMall{}
+	for mallID, shopIDs := range mallsShops {
+		if shopIDs == nil {
+			shopIDs = []int{}
+		}
+		serializers = append(serializers, &ShopsInMall{MallID: mallID, ShopIDs: shopIDs})
 	}
 	return serializers
 }
