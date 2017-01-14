@@ -247,3 +247,34 @@ func ShopsInMalls(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	serialized := serializers.SerializeShopsInMalls(mallsShops)
 	objectResponse(w, serialized)
 }
+func Search(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	formData := searchForm{}
+	errs := binding.Form(r, &formData)
+	if errs != nil {
+		errorResponse(w, INVALID_REQUEST_DATA, errs.Error(), http.StatusBadRequest)
+		return
+	}
+	limit := formData.Limit
+	offset := formData.Offset
+	cityID := formData.City
+	if cityID != nil {
+		if !models.IsCityExists(*cityID) {
+			errorResponse(w, CITY_NOT_FOUND, "City with such id does not exists.", http.StatusNotFound)
+			return
+		}
+	}
+	shopIDs := formData.Shops
+	var searchResults []*models.SearchResult
+	var totalCount int
+	if formData.LocationLat != nil && formData.LocationLon != nil {
+		userLocation := &models.Location{
+			Lat: *formData.LocationLat,
+			Lon: *formData.LocationLon,
+		}
+		searchResults, totalCount = models.GetSearchResultsWithDistance(shopIDs, userLocation, cityID, limit, offset)
+	} else {
+		searchResults, totalCount = models.GetSearchResults(shopIDs, cityID, limit, offset)
+	}
+	serialized := serializers.SerializeSearchResults(searchResults)
+	listResponse(w, serialized, totalCount)
+}

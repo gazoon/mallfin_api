@@ -72,6 +72,12 @@ type ShopsInMall struct {
 	ShopIDs []int `json:"shops"`
 }
 
+type SearchResult struct {
+	Mall     *MallBase `json:"mall"`
+	ShopIDs  []int     `json:"shops"`
+	Distance *float64  `json:"distance"`
+}
+
 func serializeMallBase(mall *models.Mall) *MallBase {
 	if mall == nil {
 		return nil
@@ -225,6 +231,22 @@ func SerializeShopsInMalls(mallsShops models.ShopsInMalls) []*ShopsInMall {
 			shopIDs = []int{}
 		}
 		serializers = append(serializers, &ShopsInMall{MallID: mallID, ShopIDs: shopIDs})
+	}
+	return serializers
+}
+func SerializeSearchResults(searchResults []*models.SearchResult) []*SearchResult {
+	serializers := make([]*SearchResult, len(searchResults))
+	for i := range searchResults {
+		searchResult := searchResults[i]
+		shopIDs := searchResult.ShopIDs
+		if shopIDs == nil {
+			shopIDs = []int{}
+		}
+		serializers[i] = &SearchResult{
+			Mall:     serializeMallBase(searchResult.Mall),
+			ShopIDs:  shopIDs,
+			Distance: searchResult.Distance,
+		}
 	}
 	return serializers
 }

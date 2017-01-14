@@ -8,7 +8,7 @@ import (
 	"strconv"
 
 	log "github.com/Sirupsen/logrus"
-	_ "github.com/lib/pq"
+	_ "github.com/gazoon/pq"
 	"strings"
 )
 

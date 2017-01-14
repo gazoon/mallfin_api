@@ -32,7 +32,7 @@ func (mlf *mallsListForm) FieldMap(req *http.Request) binding.FieldMap {
 }
 
 func (mlf *mallsListForm) Validate(req *http.Request, errs binding.Errors) binding.Errors {
-	sortKeys := models.MALL_SORT_KEYS
+	sortKeys := models.MALLS_SORT_KEYS
 	if !sortKeys.IsValid(mlf.Sort) {
 		errs = append(errs, binding.Error{
 			FieldNames: []string{"sort"},
@@ -67,7 +67,7 @@ func (slf *shopsListForm) FieldMap(req *http.Request) binding.FieldMap {
 }
 
 func (slf *shopsListForm) Validate(req *http.Request, errs binding.Errors) binding.Errors {
-	sortKeys := models.SHOP_SORT_KEYS
+	sortKeys := models.SHOPS_SORT_KEYS
 	if !sortKeys.IsValid(slf.Sort) {
 		errs = append(errs, binding.Error{
 			FieldNames: []string{"sort"},
@@ -107,7 +107,7 @@ func (clf *categoriesListForm) FieldMap(req *http.Request) binding.FieldMap {
 	}
 }
 func (clf *categoriesListForm) Validate(req *http.Request, errs binding.Errors) binding.Errors {
-	sortKeys := models.CATEGORY_SORT_KEYS
+	sortKeys := models.CATEGORIES_SORT_KEYS
 	if !sortKeys.IsValid(clf.Sort) {
 		errs = append(errs, binding.Error{
 			FieldNames: []string{"sort"},
@@ -139,7 +139,7 @@ func (clf *citiesListForm) FieldMap(req *http.Request) binding.FieldMap {
 	}
 }
 func (clf *citiesListForm) Validate(req *http.Request, errs binding.Errors) binding.Errors {
-	sortKeys := models.CITY_SORT_KEYS
+	sortKeys := models.CITIES_SORT_KEYS
 	if !sortKeys.IsValid(clf.Sort) {
 		errs = append(errs, binding.Error{
 			FieldNames: []string{"sort"},
@@ -176,5 +176,25 @@ func (smf *shopsInMallsForm) FieldMap(req *http.Request) binding.FieldMap {
 	return binding.FieldMap{
 		&smf.Shops: "shops",
 		&smf.Malls: "malls",
+	}
+}
+
+type searchForm struct {
+	Shops       []int
+	City        *int
+	LocationLat *float64
+	LocationLon *float64
+	Limit       *uint
+	Offset      *uint
+}
+
+func (sf *searchForm) FieldMap(req *http.Request) binding.FieldMap {
+	return binding.FieldMap{
+		&sf.Shops:       "shops",
+		&sf.City:        "city",
+		&sf.LocationLat: "location_lat",
+		&sf.LocationLon: "location_lon",
+		&sf.Limit:       "limit",
+		&sf.Offset:      "offset",
 	}
 }
