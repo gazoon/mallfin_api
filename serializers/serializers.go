@@ -50,9 +50,9 @@ type ShopBase struct {
 }
 type ShopDetails struct {
 	*ShopBase
-	Phone       string `json:"phone"`
-	Site        string `json:"site"`
-	NearestMall *int   `json:"nearest_mall"`
+	Phone       string    `json:"phone"`
+	Site        string    `json:"site"`
+	NearestMall *MallBase `json:"nearest_mall"`
 }
 type CategoryBase struct {
 	ID         int    `json:"id"`
@@ -179,7 +179,7 @@ func SerializeShop(shop *models.Shop) *ShopDetails {
 		ShopBase:    serializeShopBase(shop),
 		Phone:       shop.Phone,
 		Site:        shop.Site,
-		NearestMall: shop.NearestMall,
+		NearestMall: serializeMallBase(shop.NearestMall),
 	}
 	return serializer
 }
