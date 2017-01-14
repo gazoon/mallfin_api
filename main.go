@@ -11,6 +11,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/gazoon/httprouter"
+	"github.com/rs/cors"
 	"github.com/urfave/negroni"
 )
 
@@ -19,7 +20,9 @@ func recoveryMiddleware(w http.ResponseWriter, r *http.Request, next http.Handle
 		if err := recover(); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			fmt.Fprint(w, "Internal server error")
-			log.WithField("location", "recovery middleware").Warnf("Panic recovered: %s", err)
+			if _, isLogPanic := err.(*log.Entry); !isLogPanic {
+				log.WithField("location", "recovery middleware").Errorf("Panic recovered: %s", err)
+			}
 			if config.Debug() {
 				debug.PrintStack()
 			}
@@ -54,6 +57,8 @@ func main() {
 	r.GET("/cities/", handlers.CitiesList)
 
 	n := negroni.New()
+	c := cors.New(cors.Options{AllowedOrigins: []string{"*"}})
+	n.Use(c)
 	n.Use(&negroni.Logger{ALogger: log.StandardLogger()})
 	n.UseFunc(recoveryMiddleware)
 	n.UseHandler(r)
