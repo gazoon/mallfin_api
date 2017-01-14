@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	log "github.com/Sirupsen/logrus"
+	"mallfin_api/db/models"
 	"reflect"
 )
 
@@ -65,4 +66,13 @@ func listResponse(w http.ResponseWriter, resultsList interface{}, totalCount int
 		Results:    resultsList,
 	}
 	response(w, data)
+}
+func checkCity(w http.ResponseWriter, cityID *int) bool {
+	if cityID != nil {
+		if !models.IsCityExists(*cityID) {
+			errorResponse(w, CITY_NOT_FOUND, "City with such id does not exists.", http.StatusNotFound)
+			return false
+		}
+	}
+	return true
 }

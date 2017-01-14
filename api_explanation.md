@@ -1,30 +1,103 @@
+**Общие замечания**
+----
+- Все запры GET.
+
+- limit, offset - эти параметры отвечают за пагинацию, если указаны значит запрос подразумевает пагинацию.
+
+- sort - как сортировать выборку. Везде значение по умолчанию: "id", то есть по айди по возрастанию.
+У каждого значения есть обратное: "name" и "-name" по возрастанию и по убыванию соответственно.
+
+- Успешный ответ выглядит следующим образом:
+http status = 200
+```json
+{
+  "data": {...}
+}
+```
+на верхнем уровне поле "data", внутри данные соответствующие запросу.
+
+- Ошибочный ответ выглядит следующим образом:
+http status != 200
+```json
+{
+  "error": {
+    "code": "SOME_ERROR_CONSTANT",
+    "status": 400,
+    "details": "some text explanation"
+  }
+}
+```
+error.code это код ошибки на который нужно смотреть.
+error.status дублирует http status.
+Любой запрос точно может вернуть код "INVALID_REQUEST_DATA" это означает что данные пришли не в том типе, формате, диапазоне и т.д.
+
+- Если запрос подразумевает пагинацию, то данные в ответе ( то что в поле "data") будут выглядеть так:
+```json
+{
+  "total_count": 1000,
+  "count": 20,
+  "results": [...]
+}
+```
+total_count общее количество элементов в выборке, без учета пагинации.
+count размер выборки, равер длине массива results, может быть меньше параметра limit
+results список объектов
+
+- //details напротив какого либо поля в описании структуры объекта означает,
+что данное поле будет только когда вы запрашиваете этот объект в единственном экземпляре.
+
+- //null напротив какого либо поля означает что это поле может быть null у каких либо объектов.
+
+- Если напротив параметра стоит filter. значит это основной фильтрующий параметр и в запросе не может участвовать два фильтровых параметра,
+будет выбран только одни.
+
+- Параметр city является дополнительным фильтрующим параметров и присутствует почти во всех запросах,
+если указан то будет выборка только ко конкретному городу, если нет то по всей базе.
+
+
 **Malls list**
 ----
+Возвращает список тц по различным фильтрам.
+
 * **URL:**
 
     /malls/
 
 * **Query Params:**
 
-    shop [integer] - shop id, malls with such shop
+    **Optional:**
+
+    shop [integer] filter - дай тц в которых есть этот магаз
+
+    subway_station [integer] filter - дай тц которые находятся на данной станции метро
+
+    query [string] filter - дай тц по имени
+
+    ids [list] filter - дай тц по этим айдишкам. С этим параметром не будет работать пагинация и сортировка
 
     city [integer] - city id
 
-    subway_station [integer] - subway station id
+    sort [string] - возможные значения: "name", "shops_count", "id"
 
-    query [string] - text query to search
+    limit [integer]
 
-    ids [list] - list of specific mall ids
+    offset [integer]
 
-    sort [string] - which field to use for sorting
+* **Error Responses:**
 
-    limit [integer] - number of results
+    400, "INVALID_REQUEST_DATA"
 
-    offset [integer] - index of first result
+    404, "SHOP_NOT_FOUND"
+
+    404, "SUBWAY_STATION_NOT_FOUND"
+
+    404, "CITY_NOT_FOUND"
 
 
 **Mall details**
 ----
+Возращает детальную информацию о конкретном тц.
+
 * **URL:**
 
     /malls/:id/
@@ -33,73 +106,135 @@
 
     None
 
+* **Error Responses:**
+
+    400, "INVALID_REQUEST_DATA"
+
+    404, "MALL_NOT_FOUND"
 
 **Shops list**
 ----
+Возращает список магазов по различным фильтрам.
+
 * **URL:**
 
     /shops/
 
 * **Query Params:**
 
+
+    **Optional:**
+
+    mall [integer] filter - дай магазы в этом тц
+
+    category [integer] filter - дай магазы у которых есть такая категория
+
+    query [string] filter - дай магазы по имени
+
+    ids [list] filter - дай магазы по айдишкам, пагинация и сортировка не работают
+
     city [integer] - city id
 
-    mall [integer] - mall id, shops in such mall
+    sort [string] - возможные значения: "name", "id", "score", "malls_count"
 
-    category [integer] - category id
+    limit [integer]
 
-    query [string] - text query to search
+    offset [integer]
 
-    ids [list] - list of specific shop ids
+* **Error Responses:**
 
-    sort [string] - which field to use for sorting
+    400, "INVALID_REQUEST_DATA"
 
-    limit [integer] - number of results
+    404, "MALL_NOT_FOUND"
 
-    offset [integer] - index of first result
+    404, "CATEGORY_NOT_FOUND"
+
+    404, "CITY_NOT_FOUND"
 
 
 **Shop details**
 ----
+Возвращает подробную информацию о данном магазе.
+
 * **URL:**
 
     /shops/:id/
 
 * **Query Params:**
 
-    None
+    **Optional:**
+
+    location_lat [float] - x координата юзера, используются для определения ближайшего тц
+
+    location_lon [float] - y координата юзера
+
+    city [integer] - city id
+
+* **Error Responses:**
+
+    400, "INVALID_REQUEST_DATA"
+
+    404, "SHOP_NOT_FOUND"
+
+    404, "CITY_NOT_FOUND"
 
 
 **Categories list**
 ----
+Возращает список категорий.
+
 * **URL:**
 
     /categories/
 
 * **Query Params:**
 
+    **Optional:**
+
+    shop [integer] filter - дай категории данного магаза
+
+    ids [list] filter - дай категории с такими айдишками, сортировка не работает
+
     city [integer] - city id
 
-    shop [integer] - shop id, list of categories for this shop
+    sort [string] - возможные значения: "id", "name", "shops_count"
 
-    ids [list] - list of specific category ids
+* **Error Responses:**
 
-    sort [string] - which field to use for sorting
+    400, "INVALID_REQUEST_DATA"
+
+    404, "SHOP_NOT_FOUND"
+
+    404, "CITY_NOT_FOUND"
 
 
 **Category details**
 ----
+Возращает инфу у конкретной категории, на данный момент там все таже инфа что и в списке.
+
 * **URL:**
 
     /category/:id/
 
 * **Query Params:**
 
-    None
+    **Optional:**
+
+    city [integer] - city id
+
+* **Error Responses:**
+
+    400, "INVALID_REQUEST_DATA"
+
+    404, "CATEGORY_NOT_FOUND"
+
+    404, "CITY_NOT_FOUND"
 
 
 **Cities list**
 ----
+Возвращает список городов.
+
 * **URL:**
 
     /cities/
@@ -108,8 +243,164 @@
 
     query [string] - text query to search
 
-    sort [string] - which field to use for sorting
+    sort [string] - возможные значения: "id", "name"
 
+* **Error Responses:**
+
+    400, "INVALID_REQUEST_DATA"
+
+
+**Current mall**
+----
+Пытается определить тц в котором сейчас находится пользователь по местоположению. Возращает подробную инфу о тц.
+
+* **URL:**
+
+    /current_mall/
+
+* **Query Params:**
+
+* **Required:**
+
+    location_lat [float] - x координата юзера
+
+    location_lon [float] - y координата юзера
+
+* **Error Responses:**
+
+    400, "INVALID_REQUEST_DATA"
+
+    404, "MALL_NOT_FOUND"
+
+
+**Shops In Malls**
+----
+Устанавлиет какие из указанных магазинов есть в указанных тц.
+
+* **URL:**
+
+    /shops_in_malls/
+
+* **Query Params:**
+
+* **Required:**
+
+    shops [list] - список магазинов которые надо соотнести с тц
+
+    malls [list] - список тц у которых надо опеределить магазины
+
+* **Success Responses:**
+
+```json
+[
+  {
+    "mall": 1,
+    "shops": [
+      2,
+      3,
+      4,
+    ]
+  },
+  {
+    "mall": 2,
+    "shops": [
+      2,
+      5,
+      4
+    ]
+  },
+  {
+    "mall": 4,
+    "shops": []
+  }
+]
+```
+
+* **Error Responses:**
+
+    400, "INVALID_REQUEST_DATA"
+
+
+**Search**
+----
+Ищет тц по указанному списку магазов
+
+* **URL:**
+
+    /shops_in_malls/
+
+* **Query Params:**
+
+    shops [list] - список магазинов по которым надо искать
+
+    location_lat [float] - x координата юзера
+
+    location_lon [float] - y координата юзера
+
+    city [integer] - city id
+
+    sort [string] - результаты будут отсортированы по кол-ву совпавжих магазинов,
+                    это вторичная сортировка, для тц у которых кол-во совпавших равно
+                    возможные значения: "mall_id", "mall_name", "mall_shops_count", "distance"
+                    сортировка по "distance" возможно только если запрос содержал координты юзера.
+
+    limit [integer]
+
+    offset [integer]
+
+* **Success Responses:**
+
+```json
+[
+  {
+    "mall": {
+      "id": 228,
+      "name": "Some name",
+      "location": {
+        "lat": 22.33334,
+        "lon": 33.35533
+      },
+      "logo": {
+        "large": "https://storage.domain.com/path/to/large/logo.png",
+        "small": "https://storage.domain.com/path/to/small/logo.png"
+      },
+      "shops_count": 44,
+    },
+    "shops": [
+      2,
+      3,
+      4,
+    ],
+    "distance": 1000.222, //null
+  },
+  {
+    "mall": {
+      "id": 322,
+      "name": "Some another name",
+      "location": {
+        "lat": 22.33334,
+        "lon": 33.35533
+      },
+      "logo": {
+        "large": "https://storage.domain.com/path/to/large/logo.png",
+        "small": "https://storage.domain.com/path/to/small/logo.png"
+      },
+      "shops_count": 44,
+    },
+    "shops": [
+      2,
+      3,
+    ],
+    "distance": 500.222, //null
+  }
+]
+```
+
+* **Error Responses:**
+
+    400, "INVALID_REQUEST_DATA"
+
+    404, "CITY_NOT_FOUND"
 
 **Mall Object**
 ----
@@ -218,9 +509,21 @@
   "name": "Some name",
   "site": "http://domain.com/", //detials
   "phone": "+79250741413", //details
-  "nearest_mall": 1488, //details
+  "nearest_mall": { //details, //null
+    "id": 228,
+    "name": "Some name",
+    "location": {
+      "lat": 22.33334,
+      "lon": 33.35533
+    },
+    "logo": {
+      "large": "https://storage.domain.com/path/to/large/logo.png",
+      "small": "https://storage.domain.com/path/to/small/logo.png"
+    },
+    "shops_count": 44,
+  },
   "score": 400,
-  "malls_count",
+  "malls_count": 23,
   "logo": {
     "large": "https://storage.domain.com/path/to/large/logo.png",
     "small": "https://storage.domain.com/path/to/small/logo.png"
@@ -235,7 +538,7 @@
 {
   "id": 228,
   "name": "Some name",
-  "shops_count",
+  "shops_count": 2222,
   "logo": {
     "large": "https://storage.domain.com/path/to/large/logo.png",
     "small": "https://storage.domain.com/path/to/small/logo.png"

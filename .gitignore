@@ -5,7 +5,7 @@
 *.a
 *.so
 .idea
-
+conf.json
 # Folders
 _obj
 _test

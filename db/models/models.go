@@ -47,6 +47,7 @@ var (
 	SHOP_DEFAULT_ORDER_BY     = &OrderBy{Column: "s.id", Reverse: false}
 	CATEGORY_DEFAULT_ORDER_BY = &OrderBy{Column: "c.id", Reverse: false}
 	CITY_DEFAULT_ORDER_BY     = &OrderBy{Column: "c.id", Reverse: false}
+	SEARCH_DEFAULT_ORDER_BY   = &OrderBy{Column: "m.id", Reverse: false}
 
 	MALLS_SORT_KEYS = &SortKeyToOrderBy{
 		dict: map[string]*OrderBy{
@@ -91,6 +92,30 @@ var (
 			"-name": {Column: "c.name", Reverse: true},
 		},
 		defaultOrderBy: CITY_DEFAULT_ORDER_BY,
+	}
+	SEARCH_SORT_KEYS = &SortKeyToOrderBy{
+		dict: map[string]*OrderBy{
+			"mall_id":           SEARCH_DEFAULT_ORDER_BY,
+			"-mall_id":          {Column: "m.id", Reverse: true},
+			"mall_name":         {Column: "m.name", Reverse: false},
+			"-mall_name":        {Column: "m.name", Reverse: true},
+			"mall_shops_count":  {Column: "m.shops_count", Reverse: false},
+			"-mall_shops_count": {Column: "m.shops_count", Reverse: true},
+		},
+		defaultOrderBy: SEARCH_DEFAULT_ORDER_BY,
+	}
+	SEARCH_WITH_DISTANCE_SORT_KEYS = &SortKeyToOrderBy{
+		dict: map[string]*OrderBy{
+			"mall_id":           SEARCH_DEFAULT_ORDER_BY,
+			"-mall_id":          {Column: "m.id", Reverse: true},
+			"mall_name":         {Column: "m.name", Reverse: false},
+			"-mall_name":        {Column: "m.name", Reverse: true},
+			"mall_shops_count":  {Column: "m.shops_count", Reverse: false},
+			"-mall_shops_count": {Column: "m.shops_count", Reverse: true},
+			"distance":          {Column: "distance", Reverse: false},
+			"-distance":         {Column: "distance", Reverse: true},
+		},
+		defaultOrderBy: SEARCH_DEFAULT_ORDER_BY,
 	}
 )
 
@@ -277,15 +302,16 @@ func searchResultsQuery(query string, args ...interface{}) []*SearchResult {
 	return searchResults
 
 }
-func GetSearchResults(shopIDs []int, cityID *int, limit, offset *uint) ([]*SearchResult, int) {
+func GetSearchResults(shopIDs []int, cityID *int, sortKey *string, limit, offset *uint) ([]*SearchResult, int) {
 	if len(shopIDs) == 0 {
 		return nil, 0
 	}
 	var searchResults []*SearchResult
 	var totalCount int
+	orderBy := SEARCH_SORT_KEYS.CorrespondingOrderBy(sortKey)
 	shopIDsArray := pq.Array(shopIDs)
 	if cityID != nil {
-		searchResults = searchResultsQuery(`
+		searchResults = searchResultsQuery(orderBy.Compile(`
 		SELECT
 		  m.id,
 		  m.name,
@@ -294,17 +320,17 @@ func GetSearchResults(shopIDs []int, cityID *int, limit, offset *uint) ([]*Searc
 		  m.logo_large,
 		  ST_X(m.location)      location_lat,
 		  ST_Y(m.location)      location_lon,
-		  m.shops_count         mall_shops_count,
+		  m.shops_count,
 		  array_agg(ms.shop_id) shops,
 		  NULL                  distance
 		FROM mall m
 		  JOIN mall_shop ms ON m.id = ms.mall_id
 		WHERE ms.shop_id = ANY ($3) AND m.city_id = $4
 		GROUP BY m.id
-		ORDER BY count(ms.shop_id) DESC, mall_shops_count DESC
+		ORDER BY count(ms.shop_id) DESC, %s
 		LIMIT $1
 		OFFSET $2
-		`, limit, offset, shopIDsArray, *cityID)
+		`), limit, offset, shopIDsArray, *cityID)
 		totalCount = countQuery(`
 		SELECT count(DISTINCT m.id) total_count
 		FROM mall m
@@ -312,7 +338,7 @@ func GetSearchResults(shopIDs []int, cityID *int, limit, offset *uint) ([]*Searc
 		WHERE ms.shop_id = ANY ($1) AND m.city_id = $2
 		`, shopIDsArray, *cityID)
 	} else {
-		searchResults = searchResultsQuery(`
+		searchResults = searchResultsQuery(orderBy.Compile(`
 		SELECT
 		  m.id,
 		  m.name,
@@ -321,17 +347,17 @@ func GetSearchResults(shopIDs []int, cityID *int, limit, offset *uint) ([]*Searc
 		  m.logo_large,
 		  ST_X(m.location)      location_lat,
 		  ST_Y(m.location)      location_lon,
-		  m.shops_count         mall_shops_count,
+		  m.shops_count,
 		  array_agg(ms.shop_id) shops,
 		  NULL                  distance
 		FROM mall m
 		  JOIN mall_shop ms ON m.id = ms.mall_id
 		WHERE ms.shop_id = ANY ($3)
 		GROUP BY m.id
-		ORDER BY count(ms.shop_id) DESC, mall_shops_count DESC
+		ORDER BY count(ms.shop_id) DESC, %s
 		LIMIT $1
 		OFFSET $2
-		`, limit, offset, shopIDsArray)
+		`), limit, offset, shopIDsArray)
 		totalCount = countQuery(`
 		SELECT count(DISTINCT m.id) total_count
 		FROM mall m
@@ -341,15 +367,16 @@ func GetSearchResults(shopIDs []int, cityID *int, limit, offset *uint) ([]*Searc
 	}
 	return searchResults, totalCount
 }
-func GetSearchResultsWithDistance(shopIDs []int, location *Location, cityID *int, limit, offset *uint) ([]*SearchResult, int) {
+func GetSearchResultsWithDistance(shopIDs []int, location *Location, cityID *int, sortKey *string, limit, offset *uint) ([]*SearchResult, int) {
 	if len(shopIDs) == 0 || location == nil {
 		return nil, 0
 	}
 	var searchResults []*SearchResult
 	var totalCount int
+	orderBy := SEARCH_WITH_DISTANCE_SORT_KEYS.CorrespondingOrderBy(sortKey)
 	shopIDsArray := pq.Array(shopIDs)
 	if cityID != nil {
-		searchResults = searchResultsQuery(`
+		searchResults = searchResultsQuery(orderBy.Compile(`
 		SELECT
 		  m.id,
 		  m.name,
@@ -358,7 +385,7 @@ func GetSearchResultsWithDistance(shopIDs []int, location *Location, cityID *int
 		  m.logo_large,
 		  ST_X(m.location)      location_lat,
 		  ST_Y(m.location)      location_lon,
-		  m.shops_count         mall_shops_count,
+		  m.shops_count,
 		  array_agg(ms.shop_id) shops,
 		  st_distance(
 			  st_transform(m.location, 26986),
@@ -368,10 +395,10 @@ func GetSearchResultsWithDistance(shopIDs []int, location *Location, cityID *int
 		  JOIN mall_shop ms ON m.id = ms.mall_id
 		WHERE ms.shop_id = ANY ($3) AND m.city_id = $6
 		GROUP BY m.id
-		ORDER BY count(ms.shop_id) DESC, distance ASC
+		ORDER BY count(ms.shop_id) DESC, %s
 		LIMIT $1
 		OFFSET $2
-		`, limit, offset, shopIDsArray, location.Lat, location.Lon, *cityID)
+		`), limit, offset, shopIDsArray, location.Lat, location.Lon, *cityID)
 		totalCount = countQuery(`
 		SELECT count(DISTINCT m.id) total_count
 		FROM mall m
@@ -379,7 +406,7 @@ func GetSearchResultsWithDistance(shopIDs []int, location *Location, cityID *int
 		WHERE ms.shop_id = ANY ($1) AND m.city_id = $2
 		`, shopIDsArray, *cityID)
 	} else {
-		searchResults = searchResultsQuery(`
+		searchResults = searchResultsQuery(orderBy.Compile(`
 		SELECT
 		  m.id,
 		  m.name,
@@ -388,7 +415,7 @@ func GetSearchResultsWithDistance(shopIDs []int, location *Location, cityID *int
 		  m.logo_large,
 		  ST_X(m.location)      location_lat,
 		  ST_Y(m.location)      location_lon,
-		  m.shops_count         mall_shops_count,
+		  m.shops_count,
 		  array_agg(ms.shop_id) shops,
 		  st_distance(
 			  st_transform(m.location, 26986),
@@ -398,10 +425,10 @@ func GetSearchResultsWithDistance(shopIDs []int, location *Location, cityID *int
 		  JOIN mall_shop ms ON m.id = ms.mall_id
 		WHERE ms.shop_id = ANY ($3)
 		GROUP BY m.id
-		ORDER BY count(ms.shop_id) DESC, distance ASC
+		ORDER BY count(ms.shop_id) DESC, %s
 		LIMIT $1
 		OFFSET $2
-		`, limit, offset, shopIDsArray, location.Lat, location.Lon)
+		`), limit, offset, shopIDsArray, location.Lat, location.Lon)
 		totalCount = countQuery(`
 		SELECT count(DISTINCT m.id) total_count
 		FROM mall m

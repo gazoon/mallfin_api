@@ -21,11 +21,8 @@ func MallsList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	limit := formData.Limit
 	offset := formData.Offset
 	cityID := formData.City
-	if cityID != nil {
-		if !models.IsCityExists(*cityID) {
-			errorResponse(w, CITY_NOT_FOUND, "City with such id does not exists.", http.StatusNotFound)
-			return
-		}
+	if !checkCity(w, cityID) {
+		return
 	}
 	var malls []*models.Mall
 	var totalCount int
@@ -80,11 +77,8 @@ func ShopsList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	limit := formData.Limit
 	offset := formData.Offset
 	cityID := formData.City
-	if cityID != nil {
-		if !models.IsCityExists(*cityID) {
-			errorResponse(w, CITY_NOT_FOUND, "City with such id does not exists.", http.StatusNotFound)
-			return
-		}
+	if !checkCity(w, cityID) {
+		return
 	}
 	var shops []*models.Shop
 	var totalCount int
@@ -127,6 +121,9 @@ func ShopDetails(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		return
 	}
 	cityID := formData.City
+	if !checkCity(w, cityID) {
+		return
+	}
 	var userLocation *models.Location = nil
 	if formData.LocationLat != nil && formData.LocationLon != nil {
 		userLocation = &models.Location{
@@ -151,11 +148,8 @@ func CategoriesList(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 	}
 	sortKey := formData.Sort
 	cityID := formData.City
-	if cityID != nil {
-		if !models.IsCityExists(*cityID) {
-			errorResponse(w, CITY_NOT_FOUND, "City with such id does not exists.", http.StatusNotFound)
-			return
-		}
+	if !checkCity(w, cityID) {
+		return
 	}
 	var categories []*models.Category
 	var totalCount int
@@ -188,6 +182,9 @@ func CategoryDetails(w http.ResponseWriter, r *http.Request, ps httprouter.Param
 		return
 	}
 	cityID := formData.City
+	if !checkCity(w, cityID) {
+		return
+	}
 	category := models.GetCategoryDetails(categoryID, cityID)
 	if category == nil {
 		errorResponse(w, CATEGORY_NOT_FOUND, "Category with such id does not exists", http.StatusNotFound)
@@ -257,13 +254,11 @@ func Search(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	limit := formData.Limit
 	offset := formData.Offset
 	cityID := formData.City
-	if cityID != nil {
-		if !models.IsCityExists(*cityID) {
-			errorResponse(w, CITY_NOT_FOUND, "City with such id does not exists.", http.StatusNotFound)
-			return
-		}
-	}
 	shopIDs := formData.Shops
+	sortKey := formData.Sort
+	if !checkCity(w, cityID) {
+		return
+	}
 	var searchResults []*models.SearchResult
 	var totalCount int
 	if formData.LocationLat != nil && formData.LocationLon != nil {
@@ -271,9 +266,9 @@ func Search(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 			Lat: *formData.LocationLat,
 			Lon: *formData.LocationLon,
 		}
-		searchResults, totalCount = models.GetSearchResultsWithDistance(shopIDs, userLocation, cityID, limit, offset)
+		searchResults, totalCount = models.GetSearchResultsWithDistance(shopIDs, userLocation, cityID, sortKey, limit, offset)
 	} else {
-		searchResults, totalCount = models.GetSearchResults(shopIDs, cityID, limit, offset)
+		searchResults, totalCount = models.GetSearchResults(shopIDs, cityID, sortKey, limit, offset)
 	}
 	serialized := serializers.SerializeSearchResults(searchResults)
 	listResponse(w, serialized, totalCount)
