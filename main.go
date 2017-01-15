@@ -58,8 +58,10 @@ func main() {
 
 	n := negroni.New()
 	c := cors.New(cors.Options{AllowedOrigins: []string{"*"}})
+	l := negroni.NewLogger()
+	l.ALogger = log.StandardLogger()
 	n.Use(c)
-	n.Use(&negroni.Logger{ALogger: log.StandardLogger()})
+	n.Use(l)
 	n.UseFunc(recoveryMiddleware)
 	n.UseHandler(r)
 	mainLogger.Infof("Starting server on port %d", config.Port())
