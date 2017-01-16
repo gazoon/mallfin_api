@@ -1,0 +1,108 @@
+upstream api {
+    server localhost:8080;
+    keepalive 300;
+}
+upstream redisbackend {
+    server 127.0.0.1:6379;
+
+    # a pool with at most 1024 connections
+    # and do not distinguish the servers:
+    keepalive 1024;
+}
+server {
+    listen 8001 default_server;
+    listen [::]:8001 default_server;
+
+
+    access_log off;
+
+    root /var/www/html;
+
+    # Add index.php to the list if you are using PHP
+    index index.html index.htm index.nginx-debian.html;
+
+    server_name _;
+
+    proxy_http_version 1.1;
+    proxy_set_header Connection "";
+    srcache_response_cache_control off;
+    srcache_store_statuses 200;
+
+
+    location /malls/ {
+        include /etc/nginx/cors.conf;
+        set $key "nginx-cache:$uri";
+        set_escape_uri $escaped_key $key;
+        srcache_fetch GET /redis-fetch $key;
+        srcache_store PUT /redis-store key=$escaped_key;
+        proxy_pass http://api;
+    }
+    location = /malls/ {
+        include /etc/nginx/cors.conf;
+        set $key "nginx-cache:$uri?city=$arg_city&shop=$arg_shop&query=$arg_query&subway_station=$arg_subway_station&sort=$arg_sort&limit=$arg_limit&offset=$arg_offset";
+        set_escape_uri $escaped_key $key;
+        srcache_fetch GET /redis-fetch $key;
+        srcache_store PUT /redis-store key=$escaped_key;
+        proxy_pass http://api;
+    }
+    location = /shops/ {
+        include /etc/nginx/cors.conf;
+        set $key "nginx-cache:$uri?city=$arg_city&query=$arg_query&mall=$arg_mall&category=$arg_category&sort=$arg_sort&limit=$arg_limit&offset=$arg_offset";
+        set_escape_uri $escaped_key $key;
+        srcache_fetch GET /redis-fetch $key;
+        srcache_store PUT /redis-store key=$escaped_key;
+        proxy_pass http://api;
+    }
+    #location /shops/ {
+    #    include /etc/nginx/cors.conf;
+    #    set $key "nginx-cache:$uri?city=$arg_city";
+    #    set_escape_uri $escaped_key $key;
+    #   srcache_fetch GET /redis-fetch $key;
+    #    srcache_store PUT /redis-store key=$escaped_key;
+    #    proxy_pass http://api;
+    #}
+    location = /categories/ {
+        include /etc/nginx/cors.conf;
+        set $key "nginx-cache:$uri?city=$arg_city&shop=$arg_shop&sort=$arg_sort";
+        set_escape_uri $escaped_key $key;
+        srcache_fetch GET /redis-fetch $key;
+        srcache_store PUT /redis-store key=$escaped_key;
+        proxy_pass http://api;
+    }
+    location  /categories/ {
+        include /etc/nginx/cors.conf;
+        set $key "nginx-cache:$uri?city=$arg_city";
+        set_escape_uri $escaped_key $key;
+        srcache_fetch GET /redis-fetch $key;
+        srcache_store PUT /redis-store key=$escaped_key;
+        proxy_pass http://api;
+    }
+    location = /cities/ {
+        include /etc/nginx/cors.conf;
+        set $key "nginx-cache:$uri?query=$arg_query&sort=$arg_sort";
+        set_escape_uri $escaped_key $key;
+        srcache_fetch GET /redis-fetch $key;
+        srcache_store PUT /redis-store key=$escaped_key;
+        proxy_pass http://api;
+    }
+
+    location / {
+        include /etc/nginx/cors.conf;
+        proxy_pass http://api;
+    }
+
+    location /redis-fetch {
+        internal  ;
+        set  $redis_key $args;
+        redis_pass redisbackend;
+    }
+
+    location /redis-store {
+        internal  ;
+        set_unescape_uri $key $arg_key ;
+        redis2_query  set $key $echo_request_body;
+        redis2_query expire $key 14400;
+        redis2_pass  redisbackend;
+    }
+
+}
