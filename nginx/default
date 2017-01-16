@@ -53,14 +53,6 @@ server {
         srcache_store PUT /redis-store key=$escaped_key;
         proxy_pass http://api;
     }
-    #location /shops/ {
-    #    include /etc/nginx/cors.conf;
-    #    set $key "nginx-cache:$uri?city=$arg_city";
-    #    set_escape_uri $escaped_key $key;
-    #   srcache_fetch GET /redis-fetch $key;
-    #    srcache_store PUT /redis-store key=$escaped_key;
-    #    proxy_pass http://api;
-    #}
     location = /categories/ {
         include /etc/nginx/cors.conf;
         set $key "nginx-cache:$uri?city=$arg_city&shop=$arg_shop&sort=$arg_sort";
