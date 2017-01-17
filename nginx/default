@@ -1,6 +1,6 @@
 upstream api {
     server localhost:8080;
-    keepalive 300;
+    keepalive 1024;
 }
 upstream redisbackend {
     server 127.0.0.1:6379;
