@@ -121,9 +121,9 @@ func ShopDetails(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		return
 	}
 	cityID := formData.City
-	if !checkCity(w, cityID) {
-		return
-	}
+	//if !checkCity(w, cityID) {
+	//	return
+	//}
 	var userLocation *models.Location = nil
 	if formData.LocationLat != nil && formData.LocationLon != nil {
 		userLocation = &models.Location{
