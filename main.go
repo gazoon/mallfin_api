@@ -7,6 +7,7 @@ import (
 	"mallfin_api/handlers"
 	"mallfin_api/redisdb"
 	"net/http"
+	_ "net/http/pprof"
 	"runtime/debug"
 
 	log "github.com/Sirupsen/logrus"
@@ -65,6 +66,12 @@ func main() {
 	n.UseFunc(recoveryMiddleware)
 	n.UseHandler(r)
 	mainLogger.Infof("Starting server on port %d", config.Port())
+	go func() {
+		err := http.ListenAndServe("localhost:6060", nil)
+		if err != nil {
+			mainLogger.Panicf("Cannot run profiler server: %s", err)
+		}
+	}()
 	err := http.ListenAndServe(fmt.Sprintf(":%d", config.Port()), n)
 	if err != nil {
 		mainLogger.Panicf("Cannot run server: %s", err)
