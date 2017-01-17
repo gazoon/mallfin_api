@@ -7,11 +7,12 @@ import (
 	"mallfin_api/handlers"
 	"mallfin_api/redisdb"
 	"net/http"
+	_ "net/http/pprof"
 	"runtime/debug"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/gazoon/httprouter"
-	"github.com/rs/cors"
+	//"github.com/rs/cors"
 	"github.com/urfave/negroni"
 )
 
@@ -57,13 +58,18 @@ func main() {
 	r.GET("/cities/", handlers.CitiesList)
 
 	n := negroni.New()
-	c := cors.New(cors.Options{AllowedOrigins: []string{"*"}})
-	l := negroni.NewLogger()
-	l.ALogger = log.StandardLogger()
-	n.Use(c)
-	n.Use(l)
+	//c := cors.New(cors.Options{AllowedOrigins: []string{"*"}})
+	//n.Use(c)
 	n.UseFunc(recoveryMiddleware)
 	n.UseHandler(r)
+	if config.Debug() {
+		go func() {
+			err := http.ListenAndServe(":6060", nil)
+			if err != nil {
+				mainLogger.Panicf("Cannot run profiler server: %s", err)
+			}
+		}()
+	}
 	mainLogger.Infof("Starting server on port %d", config.Port())
 	err := http.ListenAndServe(fmt.Sprintf(":%d", config.Port()), n)
 	if err != nil {

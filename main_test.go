@@ -3,6 +3,9 @@ package main
 import (
 	//json "github.com/pquerna/ffjson/ffjson"
 	"encoding/json"
+	"fmt"
+	log "github.com/Sirupsen/logrus"
+	"runtime/debug"
 	"testing"
 )
 
@@ -108,13 +111,59 @@ func marshalMap() {
 		panic(err)
 	}
 }
-func BenchmarkMap(b *testing.B) {
+
+//func BenchmarkMap(b *testing.B) {
+//	for n := 0; n < b.N; n++ {
+//		marshalMap()
+//	}
+//}
+//func BenchmarkStruct(b *testing.B) {
+//	for n := 0; n < b.N; n++ {
+//		marshalStruct()
+//	}
+//}
+func BenchmarkAF(b *testing.B) {
 	for n := 0; n < b.N; n++ {
-		marshalMap()
+		_ = func() int {
+			if err := recover(); err != nil {
+				fmt.Println("Internal server error")
+				if _, isLogPanic := err.(*log.Entry); !isLogPanic {
+					log.WithField("location", "recovery middleware").Errorf("Panic recovered: %s", err)
+				}
+				debug.PrintStack()
+			}
+			return 0
+		}()
 	}
 }
-func BenchmarkStruct(b *testing.B) {
+func BenchmarkAFReusing(b *testing.B) {
+	f := func() int {
+		if err := recover(); err != nil {
+			fmt.Println("Internal server error")
+			if _, isLogPanic := err.(*log.Entry); !isLogPanic {
+				log.WithField("location", "recovery middleware").Errorf("Panic recovered: %s", err)
+			}
+			debug.PrintStack()
+		}
+		return 0
+	}
 	for n := 0; n < b.N; n++ {
-		marshalStruct()
+		_ = f()
+	}
+}
+func normalFunc() int {
+	if err := recover(); err != nil {
+		fmt.Println("Internal server error")
+		if _, isLogPanic := err.(*log.Entry); !isLogPanic {
+			log.WithField("location", "recovery middleware").Errorf("Panic recovered: %s", err)
+		}
+		debug.PrintStack()
+	}
+	return 0
+
+}
+func BenchmarkNF(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		_ = normalFunc()
 	}
 }
