@@ -67,7 +67,7 @@ func main() {
 	n.UseHandler(r)
 	mainLogger.Infof("Starting server on port %d", config.Port())
 	go func() {
-		err := http.ListenAndServe("localhost:6060", nil)
+		err := http.ListenAndServe(":6060", nil)
 		if err != nil {
 			mainLogger.Panicf("Cannot run profiler server: %s", err)
 		}
