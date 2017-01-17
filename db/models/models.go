@@ -845,58 +845,58 @@ func mallsQuery(queryName, query string, args ...interface{}) []*Mall {
 }
 func GetShopDetails(shopID int, location *Location, cityID *int) *Shop {
 	shop := Shop{}
-	conn := db.GetConnection()
-	queryName := utils.CurrentFuncName()
-	var err error
-	if location == nil {
-		err = conn.QueryRow(`
-		SELECT
-		  s.id,
-		  s.name,
-		  s.logo_small,
-		  s.logo_large,
-		  s.score,
-		  s.malls_count,
-		  s.phone,
-		  s.site
-		FROM shop s
-		WHERE s.id = $1
-		`, shopID).Scan(&shop.ID, &shop.Name, &shop.LogoSmall, &shop.LogoLarge, &shop.Score, &shop.MallsCount, &shop.Phone, &shop.Site)
-	} else {
-		shop.NearestMall = &Mall{}
-		err = conn.QueryRow(`
-		SELECT
-		  s.id,
-		  s.name,
-		  s.logo_small,
-		  s.logo_large,
-		  s.score,
-		  s.malls_count,
-		  s.phone,
-		  s.site,
-		  m.id             mall_id,
-		  m.name           mall_name,
-		  m.phone          mall_phone,
-		  m.logo_small     mall_logo_small,
-		  m.logo_large     mall_logo_large,
-		  ST_X(m.location) mall_location_lat,
-		  ST_Y(m.location) mall_location_lon,
-		  m.shops_count    mall_shops
-		FROM shop s
-		  JOIN mall_shop ms ON s.id = ms.shop_id
-		  JOIN mall m ON ms.mall_id = m.id
-		WHERE s.id = $1
-		ORDER BY m.location <-> ST_SetSRID(ST_Point($2, $3), 4326)
-		LIMIT 1
-		`, shopID, location.Lat, location.Lon).Scan(&shop.ID, &shop.Name, &shop.LogoSmall, &shop.LogoLarge, &shop.Score, &shop.MallsCount,
-			&shop.Phone, &shop.Site, &shop.NearestMall.ID, &shop.NearestMall.Name, &shop.NearestMall.Phone, &shop.NearestMall.LogoSmall,
-			&shop.NearestMall.LogoLarge, &shop.NearestMall.Location.Lat, &shop.NearestMall.Location.Lon, &shop.NearestMall.ShopsCount)
-	}
-	if err == sql.ErrNoRows {
-		return nil
-	} else if err != nil {
-		moduleLog.WithFields(log.Fields{"shop": shopID, "query": queryName}).Panicf("Cannot get shop by ID: %s", err)
-	}
+	//conn := db.GetConnection()
+	//queryName := utils.CurrentFuncName()
+	//var err error
+	//if location == nil {
+	//	err = conn.QueryRow(`
+	//	SELECT
+	//	  s.id,
+	//	  s.name,
+	//	  s.logo_small,
+	//	  s.logo_large,
+	//	  s.score,
+	//	  s.malls_count,
+	//	  s.phone,
+	//	  s.site
+	//	FROM shop s
+	//	WHERE s.id = $1
+	//	`, shopID).Scan(&shop.ID, &shop.Name, &shop.LogoSmall, &shop.LogoLarge, &shop.Score, &shop.MallsCount, &shop.Phone, &shop.Site)
+	//} else {
+	//	shop.NearestMall = &Mall{}
+	//	err = conn.QueryRow(`
+	//	SELECT
+	//	  s.id,
+	//	  s.name,
+	//	  s.logo_small,
+	//	  s.logo_large,
+	//	  s.score,
+	//	  s.malls_count,
+	//	  s.phone,
+	//	  s.site,
+	//	  m.id             mall_id,
+	//	  m.name           mall_name,
+	//	  m.phone          mall_phone,
+	//	  m.logo_small     mall_logo_small,
+	//	  m.logo_large     mall_logo_large,
+	//	  ST_X(m.location) mall_location_lat,
+	//	  ST_Y(m.location) mall_location_lon,
+	//	  m.shops_count    mall_shops
+	//	FROM shop s
+	//	  JOIN mall_shop ms ON s.id = ms.shop_id
+	//	  JOIN mall m ON ms.mall_id = m.id
+	//	WHERE s.id = $1
+	//	ORDER BY m.location <-> ST_SetSRID(ST_Point($2, $3), 4326)
+	//	LIMIT 1
+	//	`, shopID, location.Lat, location.Lon).Scan(&shop.ID, &shop.Name, &shop.LogoSmall, &shop.LogoLarge, &shop.Score, &shop.MallsCount,
+	//		&shop.Phone, &shop.Site, &shop.NearestMall.ID, &shop.NearestMall.Name, &shop.NearestMall.Phone, &shop.NearestMall.LogoSmall,
+	//		&shop.NearestMall.LogoLarge, &shop.NearestMall.Location.Lat, &shop.NearestMall.Location.Lon, &shop.NearestMall.ShopsCount)
+	//}
+	//if err == sql.ErrNoRows {
+	//	return nil
+	//} else if err != nil {
+	//	moduleLog.WithFields(log.Fields{"shop": shopID, "query": queryName}).Panicf("Cannot get shop by ID: %s", err)
+	//}
 	return &shop
 }
 func GetShops(cityID *int, sortKey *string, limit, offset *uint) ([]*Shop, int) {
