@@ -86,9 +86,47 @@ func setNewConnection(conn *sql.DB) {
 	closeCurrentConn()
 	db = conn
 }
+
+var shopStmt *sql.Stmt
+
 func Initialization() {
 	conn := createNewDBConnection(config.Postgres().Name)
+	var err error
+	shopStmt, err = conn.Prepare(`
+		SELECT
+		  s.id,
+		  s.name,
+		  s.logo_small,
+		  s.logo_large,
+		  s.score,
+		  s.malls_count,
+		  s.phone,
+		  s.site,
+		  m.id             mall_id,
+		  m.name           mall_name,
+		  m.phone          mall_phone,
+		  m.logo_small     mall_logo_small,
+		  m.logo_large     mall_logo_large,
+		  ST_X(m.location) mall_location_lat,
+		  ST_Y(m.location) mall_location_lon,
+		  m.shops_count    mall_shops
+		FROM shop s
+		  JOIN mall_shop ms ON s.id = ms.shop_id
+		  JOIN mall m ON ms.mall_id = m.id
+		WHERE s.id = $1
+		ORDER BY m.location <-> ST_SetSRID(ST_Point($2, $3), 4326)
+		LIMIT 1
+	`)
+	if err != nil {
+		panic(err)
+	}
 	setNewConnection(conn)
+}
+func GetShopStmt() *sql.Stmt {
+	if shopStmt == nil {
+		moduleLog.Panic("Postgres has not initialized yet")
+	}
+	return shopStmt
 }
 func GetConnection() *sql.DB {
 	if db == nil {
