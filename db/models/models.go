@@ -3,6 +3,7 @@ package models
 import (
 	"database/sql"
 	"mallfin_api/db"
+	"mallfin_api/redisdb"
 
 	"time"
 
@@ -11,6 +12,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/gazoon/pq"
+	"gopkg.in/redis.v5"
 	"mallfin_api/utils"
 )
 
@@ -236,12 +238,19 @@ func IsMallExists(mallID int) bool {
 }
 func IsCityExists(cityID int) bool {
 	queryName := utils.CurrentFuncName()
-	exists := existsQuery(queryName, `
-	SELECT exists(
-		SELECT *
-		FROM city
-		WHERE id = $1)
-	`, cityID)
+	//exists := existsQuery(queryName, `
+	//SELECT exists(
+	//	SELECT *
+	//	FROM city
+	//	WHERE id = $1)
+	//`, cityID)
+	redisConn := redisdb.GetConnection()
+	exists, err := redisConn.Exists(fmt.Sprintf("city:%d", cityID)).Result()
+	if err == redis.Nil {
+		return false
+	} else if err != nil {
+		panic(err.Error() + queryName)
+	}
 	return exists
 }
 func IsCategoryExists(categoryID int) bool {
@@ -864,33 +873,41 @@ func GetShopDetails(shopID int, location *Location, cityID *int) *Shop {
 		`, shopID).Scan(&shop.ID, &shop.Name, &shop.LogoSmall, &shop.LogoLarge, &shop.Score, &shop.MallsCount, &shop.Phone, &shop.Site)
 	} else {
 		shop.NearestMall = &Mall{}
-		err = conn.QueryRow(`
-		SELECT
-		  s.id,
-		  s.name,
-		  s.logo_small,
-		  s.logo_large,
-		  s.score,
-		  s.malls_count,
-		  s.phone,
-		  s.site,
-		  m.id             mall_id,
-		  m.name           mall_name,
-		  m.phone          mall_phone,
-		  m.logo_small     mall_logo_small,
-		  m.logo_large     mall_logo_large,
-		  ST_X(m.location) mall_location_lat,
-		  ST_Y(m.location) mall_location_lon,
-		  m.shops_count    mall_shops
-		FROM shop s
-		  JOIN mall_shop ms ON s.id = ms.shop_id
-		  JOIN mall m ON ms.mall_id = m.id
-		WHERE s.id = $1
-		ORDER BY m.location <-> ST_SetSRID(ST_Point($2, $3), 4326)
-		LIMIT 1
-		`, shopID, location.Lat, location.Lon).Scan(&shop.ID, &shop.Name, &shop.LogoSmall, &shop.LogoLarge, &shop.Score, &shop.MallsCount,
-			&shop.Phone, &shop.Site, &shop.NearestMall.ID, &shop.NearestMall.Name, &shop.NearestMall.Phone, &shop.NearestMall.LogoSmall,
-			&shop.NearestMall.LogoLarge, &shop.NearestMall.Location.Lat, &shop.NearestMall.Location.Lon, &shop.NearestMall.ShopsCount)
+		redisConn := redisdb.GetConnection()
+		name, err := redisConn.Get(fmt.Sprintf("shop:%d", shopID)).Result()
+		if err == redis.Nil {
+			return nil
+		} else if err != nil {
+			panic(err)
+		}
+		shop.Name = name
+		//err = conn.QueryRow(`
+		//SELECT
+		//  s.id,
+		//  s.name,
+		//  s.logo_small,
+		//  s.logo_large,
+		//  s.score,
+		//  s.malls_count,
+		//  s.phone,
+		//  s.site,
+		//  m.id             mall_id,
+		//  m.name           mall_name,
+		//  m.phone          mall_phone,
+		//  m.logo_small     mall_logo_small,
+		//  m.logo_large     mall_logo_large,
+		//  ST_X(m.location) mall_location_lat,
+		//  ST_Y(m.location) mall_location_lon,
+		//  m.shops_count    mall_shops
+		//FROM shop s
+		//  JOIN mall_shop ms ON s.id = ms.shop_id
+		//  JOIN mall m ON ms.mall_id = m.id
+		//WHERE s.id = $1
+		//ORDER BY m.location <-> ST_SetSRID(ST_Point($2, $3), 4326)
+		//LIMIT 1
+		//`, shopID, location.Lat, location.Lon).Scan(&shop.ID, &shop.Name, &shop.LogoSmall, &shop.LogoLarge, &shop.Score, &shop.MallsCount,
+		//	&shop.Phone, &shop.Site, &shop.NearestMall.ID, &shop.NearestMall.Name, &shop.NearestMall.Phone, &shop.NearestMall.LogoSmall,
+		//	&shop.NearestMall.LogoLarge, &shop.NearestMall.Location.Lat, &shop.NearestMall.Location.Lon, &shop.NearestMall.ShopsCount)
 	}
 	if err == sql.ErrNoRows {
 		return nil
