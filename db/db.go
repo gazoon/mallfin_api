@@ -7,9 +7,10 @@ import (
 	"os/exec"
 	"strconv"
 
+	"strings"
+
 	log "github.com/Sirupsen/logrus"
 	_ "github.com/gazoon/pq"
-	"strings"
 )
 
 var (
@@ -88,6 +89,7 @@ func setNewConnection(conn *sql.DB) {
 }
 
 var shopStmt *sql.Stmt
+var countStmt *sql.Stmt
 
 func Initialization() {
 	conn := createNewDBConnection(config.Postgres().Name)
@@ -120,6 +122,15 @@ func Initialization() {
 	if err != nil {
 		panic(err)
 	}
+	countStmt, err = conn.Prepare(`
+	SELECT exists(
+		SELECT *
+		FROM city
+		WHERE id = $1)
+	`)
+	if err != nil {
+		panic(err)
+	}
 	setNewConnection(conn)
 }
 func GetShopStmt() *sql.Stmt {
@@ -127,6 +138,12 @@ func GetShopStmt() *sql.Stmt {
 		moduleLog.Panic("Postgres has not initialized yet")
 	}
 	return shopStmt
+}
+func GetCountStmt() *sql.Stmt {
+	if countStmt == nil {
+		moduleLog.Panic("Postgres has not initialized yet")
+	}
+	return countStmt
 }
 func GetConnection() *sql.DB {
 	if db == nil {

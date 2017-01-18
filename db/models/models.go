@@ -236,12 +236,12 @@ func IsMallExists(mallID int) bool {
 }
 func IsCityExists(cityID int) bool {
 	queryName := utils.CurrentFuncName()
-	exists := existsQuery(queryName, `
-	SELECT exists(
-		SELECT *
-		FROM city
-		WHERE id = $1)
-	`, cityID)
+	stmt := db.GetCountStmt()
+	var exists bool
+	err := stmt.QueryRow(cityID).Scan(&exists)
+	if err != nil {
+		moduleLog.WithField("query", queryName).Panicf("Cannot check the existence: %s", err)
+	}
 	return exists
 }
 func IsCategoryExists(categoryID int) bool {
