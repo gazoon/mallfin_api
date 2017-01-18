@@ -19,7 +19,7 @@ var (
 
 func createNewDBConnection(dbName string) *sql.DB {
 	dbConf := config.Postgres()
-	conn, err := sql.Open("postgres", fmt.Sprintf("dbname=%s user=%s password=%s host=%s port=%d", dbName, dbConf.User, dbConf.Password, dbConf.Host, dbConf.Port))
+	conn, err := sql.Open("postgres", fmt.Sprintf("dbname=%s user=%s password=%s host=%s port=%d sslmode=%s", dbName, dbConf.User, dbConf.Password, dbConf.Host, dbConf.Port, dbConf.SSL))
 	if err == nil {
 		err = conn.Ping()
 	}
