@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql"
 	"fmt"
+	"github.com/jackc/pgx"
 	"mallfin_api/config"
 	"os/exec"
 	"strconv"
@@ -86,9 +87,37 @@ func setNewConnection(conn *sql.DB) {
 	closeCurrentConn()
 	db = conn
 }
+func createNewPool() *pgx.ConnPool {
+	dbConf := config.Postgres()
+	connPoolConfig := pgx.ConnPoolConfig{
+		ConnConfig: pgx.ConnConfig{
+			Host:     dbConf.Host,
+			User:     dbConf.User,
+			Password: dbConf.Password,
+			Database: dbConf.Name,
+			Port:     uint16(dbConf.Port),
+		},
+		MaxConnections: 20,
+	}
+	pool, err := pgx.NewConnPool(connPoolConfig)
+	if err != nil {
+		panic(err)
+	}
+	return pool
+}
+
+var pgxConn *pgx.ConnPool
+
 func Initialization() {
 	conn := createNewDBConnection(config.Postgres().Name)
 	setNewConnection(conn)
+	pgxConn = createNewPool()
+}
+func GetPgxConnection() *pgx.ConnPool {
+	if pgxConn == nil {
+		moduleLog.Panic("Postgres has not initialized yet")
+	}
+	return pgxConn
 }
 func GetConnection() *sql.DB {
 	if db == nil {

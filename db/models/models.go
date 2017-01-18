@@ -207,7 +207,7 @@ type SearchResult struct {
 
 func existsQuery(queryName, query string, args ...interface{}) bool {
 	var exists bool
-	conn := db.GetConnection()
+	conn := db.GetPgxConnection()
 	err := conn.QueryRow(query, args...).Scan(&exists)
 	if err != nil {
 		moduleLog.WithField("query", queryName).Panicf("Cannot check the existence: %s", err)
@@ -845,7 +845,7 @@ func mallsQuery(queryName, query string, args ...interface{}) []*Mall {
 }
 func GetShopDetails(shopID int, location *Location, cityID *int) *Shop {
 	shop := Shop{}
-	conn := db.GetConnection()
+	conn := db.GetPgxConnection()
 	queryName := utils.CurrentFuncName()
 	var err error
 	if location == nil {
