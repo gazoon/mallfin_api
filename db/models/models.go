@@ -9,10 +9,10 @@ import (
 	"fmt"
 	"strings"
 
+	"mallfin_api/utils"
+
 	log "github.com/Sirupsen/logrus"
 	"github.com/gazoon/pq"
-	"mallfin_api/utils"
-	"reflect"
 )
 
 var moduleLog = log.WithField("location", "models")
@@ -309,17 +309,15 @@ func searchResultsQuery(queryName, query string, args ...interface{}) []*SearchR
 	}
 	return searchResults
 }
-func computeTotalCount3(resultsLen int, limit, offset *uint, queryName, query string, args ...interface{}) int {
-	var totalCount int
+func totalCountFromResults(resultsLen int, limit, offset *uint) (int, bool) {
 	if (limit == nil || *limit == 0) && (offset == nil || *offset == 0 || resultsLen != 0) {
-		totalCount = resultsLen
+		totalCount := resultsLen
 		if offset != nil {
 			totalCount += int(*offset)
 		}
-	} else {
-		totalCount = countQuery(queryName, query, args...)
+		return totalCount, true
 	}
-	return totalCount
+	return 0, false
 }
 func GetSearchResults(shopIDs []int, cityID *int, sortKey *string, limit, offset *uint) ([]*SearchResult, int) {
 	if len(shopIDs) == 0 {
@@ -351,12 +349,15 @@ func GetSearchResults(shopIDs []int, cityID *int, sortKey *string, limit, offset
 		LIMIT $1
 		OFFSET $2
 		`), limit, offset, shopIDsArray, *cityID)
-		totalCount = countQuery(queryName, `
-		SELECT count(DISTINCT m.id) total_count
-		FROM mall m
-		  JOIN mall_shop ms ON m.id = ms.mall_id
-		WHERE ms.shop_id = ANY ($1) AND m.city_id = $2
-		`, shopIDsArray, *cityID)
+		var ok bool
+		if totalCount, ok = totalCountFromResults(len(searchResults), limit, offset); !ok {
+			totalCount = countQuery(queryName, `
+			SELECT count(DISTINCT m.id) total_count
+			FROM mall m
+			  JOIN mall_shop ms ON m.id = ms.mall_id
+			WHERE ms.shop_id = ANY ($1) AND m.city_id = $2
+			`, shopIDsArray, *cityID)
+		}
 	} else {
 		searchResults = searchResultsQuery(queryName, orderBy.Compile(`
 		SELECT
@@ -378,12 +379,15 @@ func GetSearchResults(shopIDs []int, cityID *int, sortKey *string, limit, offset
 		LIMIT $1
 		OFFSET $2
 		`), limit, offset, shopIDsArray)
-		totalCount = countQuery(queryName, `
-		SELECT count(DISTINCT m.id) total_count
-		FROM mall m
-		  JOIN mall_shop ms ON m.id = ms.mall_id
-		WHERE ms.shop_id = ANY ($1)
-		`, shopIDsArray)
+		var ok bool
+		if totalCount, ok = totalCountFromResults(len(searchResults), limit, offset); !ok {
+			totalCount = countQuery(queryName, `
+			SELECT count(DISTINCT m.id) total_count
+			FROM mall m
+			  JOIN mall_shop ms ON m.id = ms.mall_id
+			WHERE ms.shop_id = ANY ($1)
+			`, shopIDsArray)
+		}
 	}
 	return searchResults, totalCount
 }
@@ -420,12 +424,15 @@ func GetSearchResultsWithDistance(shopIDs []int, location *Location, cityID *int
 		LIMIT $1
 		OFFSET $2
 		`), limit, offset, shopIDsArray, location.Lat, location.Lon, *cityID)
-		totalCount = countQuery(queryName, `
-		SELECT count(DISTINCT m.id) total_count
-		FROM mall m
-		  JOIN mall_shop ms ON m.id = ms.mall_id
-		WHERE ms.shop_id = ANY ($1) AND m.city_id = $2
-		`, shopIDsArray, *cityID)
+		var ok bool
+		if totalCount, ok = totalCountFromResults(len(searchResults), limit, offset); !ok {
+			totalCount = countQuery(queryName, `
+			SELECT count(DISTINCT m.id) total_count
+			FROM mall m
+			  JOIN mall_shop ms ON m.id = ms.mall_id
+			WHERE ms.shop_id = ANY ($1) AND m.city_id = $2
+			`, shopIDsArray, *cityID)
+		}
 	} else {
 		searchResults = searchResultsQuery(queryName, orderBy.Compile(`
 		SELECT
@@ -450,12 +457,15 @@ func GetSearchResultsWithDistance(shopIDs []int, location *Location, cityID *int
 		LIMIT $1
 		OFFSET $2
 		`), limit, offset, shopIDsArray, location.Lat, location.Lon)
-		totalCount = countQuery(queryName, `
-		SELECT count(DISTINCT m.id) total_count
-		FROM mall m
-		  JOIN mall_shop ms ON m.id = ms.mall_id
-		WHERE ms.shop_id = ANY ($1)
-		`, shopIDsArray)
+		var ok bool
+		if totalCount, ok = totalCountFromResults(len(searchResults), limit, offset); !ok {
+			totalCount = countQuery(queryName, `
+			SELECT count(DISTINCT m.id) total_count
+			FROM mall m
+			  JOIN mall_shop ms ON m.id = ms.mall_id
+			WHERE ms.shop_id = ANY ($1)
+			`, shopIDsArray)
+		}
 	}
 	return searchResults, totalCount
 }
@@ -624,12 +634,15 @@ func GetMalls(cityID *int, sortKey *string, limit, offset *uint) ([]*Mall, int) 
 		LIMIT $1
 		OFFSET $2
 		`), limit, offset, *cityID)
-		totalCount = countQuery(queryName, `
-		SELECT
-		  count(*) total_count
-		FROM mall m
-		WHERE m.city_id = $1
-		`, *cityID)
+		var ok bool
+		if totalCount, ok = totalCountFromResults(len(malls), limit, offset); !ok {
+			totalCount = countQuery(queryName, `
+			SELECT
+			  count(*) total_count
+			FROM mall m
+			WHERE m.city_id = $1
+			`, *cityID)
+		}
 	} else {
 		malls = mallsQuery(queryName, orderBy.Compile(`
 		SELECT
@@ -646,11 +659,14 @@ func GetMalls(cityID *int, sortKey *string, limit, offset *uint) ([]*Mall, int) 
 		LIMIT $1
 		OFFSET $2
 		`), limit, offset)
-		totalCount = countQuery(queryName, `
-		SELECT
-		  count(*) total_count
-		FROM mall m
-		`)
+		var ok bool
+		if totalCount, ok = totalCountFromResults(len(malls), limit, offset); !ok {
+			totalCount = countQuery(queryName, `
+			SELECT
+			  count(*) total_count
+			FROM mall m
+			`)
+		}
 	}
 	return malls, totalCount
 }
@@ -696,13 +712,16 @@ func GetMallsBySubwayStation(subwayStationID int, sortKey *string, limit, offset
 	LIMIT $1
 	OFFSET $2
 	`), limit, offset, subwayStationID)
-	totalCount := countQuery(queryName, `
-	SELECT
-	  count(*) total_count
-	FROM mall m
-	  LEFT JOIN subway_station ss ON m.subway_station_id = ss.id
-	WHERE ss.id = $1
-	`, subwayStationID)
+	totalCount, ok := totalCountFromResults(len(malls), limit, offset)
+	if !ok {
+		totalCount = countQuery(queryName, `
+		SELECT
+		  count(*) total_count
+		FROM mall m
+		  LEFT JOIN subway_station ss ON m.subway_station_id = ss.id
+		WHERE ss.id = $1
+		`, subwayStationID)
+	}
 	return malls, totalCount
 }
 func GetMallsByShop(shopID int, cityID *int, sortKey *string, limit, offset *uint) ([]*Mall, int) {
@@ -728,13 +747,16 @@ func GetMallsByShop(shopID int, cityID *int, sortKey *string, limit, offset *uin
 		LIMIT $1
 		OFFSET $2
 		`), limit, offset, shopID, *cityID)
-		totalCount = countQuery(queryName, `
-		SELECT
-		  count(*) total_count
-		FROM mall m
-		  JOIN mall_shop ms ON m.id = ms.mall_id
-		WHERE ms.shop_id = $1 AND m.city_id = $2
-		`, shopID, *cityID)
+		var ok bool
+		if totalCount, ok = totalCountFromResults(len(malls), limit, offset); !ok {
+			totalCount = countQuery(queryName, `
+			SELECT
+			  count(*) total_count
+			FROM mall m
+			  JOIN mall_shop ms ON m.id = ms.mall_id
+			WHERE ms.shop_id = $1 AND m.city_id = $2
+			`, shopID, *cityID)
+		}
 	} else {
 		malls = mallsQuery(queryName, orderBy.Compile(`
 		SELECT
@@ -753,13 +775,16 @@ func GetMallsByShop(shopID int, cityID *int, sortKey *string, limit, offset *uin
 		LIMIT $1
 		OFFSET $2
 		`), limit, offset, shopID)
-		totalCount = countQuery(queryName, `
-		SELECT
-		  count(*) total_count
-		FROM mall m
-		  JOIN mall_shop ms ON m.id = ms.mall_id
-		WHERE ms.shop_id = $1
-		`, shopID)
+		var ok bool
+		if totalCount, ok = totalCountFromResults(len(malls), limit, offset); !ok {
+			totalCount = countQuery(queryName, `
+			SELECT
+			  count(*) total_count
+			FROM mall m
+			  JOIN mall_shop ms ON m.id = ms.mall_id
+			WHERE ms.shop_id = $1
+			`, shopID)
+		}
 	}
 	return malls, totalCount
 }
@@ -788,15 +813,18 @@ func GetMallsByName(name string, cityID *int, sortKey *string, limit, offset *ui
 		LIMIT $1
 		OFFSET $2
 		`), limit, offset, name, *cityID)
-		totalCount = countQuery(queryName, `
-		SELECT
-		  count(*) total_count
-		FROM mall m
-		  JOIN (SELECT DISTINCT ON (mall_id) mall_id
-				FROM mall_name
-				WHERE name ILIKE '%' || $1 || '%') mn ON m.id = mn.mall_id
-		WHERE m.city_id = $2
-		`, name, *cityID)
+		var ok bool
+		if totalCount, ok = totalCountFromResults(len(malls), limit, offset); !ok {
+			totalCount = countQuery(queryName, `
+			SELECT
+			  count(*) total_count
+			FROM mall m
+			  JOIN (SELECT DISTINCT ON (mall_id) mall_id
+					FROM mall_name
+					WHERE name ILIKE '%' || $1 || '%') mn ON m.id = mn.mall_id
+			WHERE m.city_id = $2
+			`, name, *cityID)
+		}
 	} else {
 		malls = mallsQuery(queryName, orderBy.Compile(`
 		SELECT
@@ -816,14 +844,17 @@ func GetMallsByName(name string, cityID *int, sortKey *string, limit, offset *ui
 		LIMIT $1
 		OFFSET $2
 		`), limit, offset, name)
-		totalCount = countQuery(queryName, `
-		SELECT
-		  count(*) total_count
-		FROM mall m
-		  JOIN (SELECT DISTINCT ON (mall_id) mall_id
-				FROM mall_name
-				WHERE name ILIKE '%' || $1 || '%') mn ON m.id = mn.mall_id
-		`, name)
+		var ok bool
+		if totalCount, ok = totalCountFromResults(len(malls), limit, offset); !ok {
+			totalCount = countQuery(queryName, `
+			SELECT
+			  count(*) total_count
+			FROM mall m
+			  JOIN (SELECT DISTINCT ON (mall_id) mall_id
+					FROM mall_name
+					WHERE name ILIKE '%' || $1 || '%') mn ON m.id = mn.mall_id
+			`, name)
+		}
 	}
 	return malls, totalCount
 }
@@ -928,14 +959,17 @@ func GetShops(cityID *int, sortKey *string, limit, offset *uint) ([]*Shop, int) 
 		LIMIT $1
 		OFFSET $2
 		`), limit, offset, *cityID)
-		totalCount = countQuery(queryName, `
-		SELECT
-		  count(*) total_count
-		FROM shop s
-		  JOIN mall_shop ms ON s.id = ms.shop_id
-		  JOIN mall m ON ms.mall_id = m.id
-		WHERE m.city_id = $1
-		`, *cityID)
+		var ok bool
+		if totalCount, ok = totalCountFromResults(len(shops), limit, offset); !ok {
+			totalCount = countQuery(queryName, `
+			SELECT
+			  count(*) total_count
+			FROM shop s
+			  JOIN mall_shop ms ON s.id = ms.shop_id
+			  JOIN mall m ON ms.mall_id = m.id
+			WHERE m.city_id = $1
+			`, *cityID)
+		}
 	} else {
 		shops = shopsQuery(queryName, orderBy.Compile(`
 		SELECT
@@ -950,11 +984,14 @@ func GetShops(cityID *int, sortKey *string, limit, offset *uint) ([]*Shop, int) 
 		LIMIT $1
 		OFFSET $2
 		`), limit, offset)
-		totalCount = countQuery(queryName, `
-		SELECT
-		  count(*) total_count
-		FROM shop s
-		`)
+		var ok bool
+		if totalCount, ok = totalCountFromResults(len(shops), limit, offset); !ok {
+			totalCount = countQuery(queryName, `
+			SELECT
+			  count(*) total_count
+			FROM shop s
+			`)
+		}
 	}
 	return shops, totalCount
 }
@@ -976,13 +1013,16 @@ func GetShopsByMall(mallID int, sortKey *string, limit, offset *uint) ([]*Shop, 
 	LIMIT $1
 	OFFSET $2
 	`), limit, offset, mallID)
-	totalCount := countQuery(queryName, `
-	SELECT
-	  count(*) total_count
-	FROM shop s
-	  JOIN mall_shop ms ON s.id = ms.shop_id
-	WHERE ms.mall_id = $1
-	`, mallID)
+	totalCount, ok := totalCountFromResults(len(shops), limit, offset)
+	if !ok {
+		totalCount = countQuery(queryName, `
+		SELECT
+		  count(*) total_count
+		FROM shop s
+		  JOIN mall_shop ms ON s.id = ms.shop_id
+		WHERE ms.mall_id = $1
+		`, mallID)
+	}
 	return shops, totalCount
 }
 func GetShopsByIDs(shopIDs []int, cityID *int) ([]*Shop, int) {
@@ -1029,14 +1069,17 @@ func GetShopsByName(name string, cityID *int, sortKey *string, limit, offset *ui
 		LIMIT $1
 		OFFSET $2
 		`), limit, offset, name, cityID)
-		totalCount = countQuery(queryName, `
-		SELECT count(DISTINCT s.id) AS total_count
-		FROM shop s
-		  JOIN shop_name sn ON s.id = sn.shop_id
-		  JOIN mall_shop ms ON s.id = ms.shop_id
-		  JOIN mall m ON ms.mall_id = m.id
-		WHERE sn.name ILIKE '%' || $1 || '%' AND m.city_id = $2
-		`, name, cityID)
+		var ok bool
+		if totalCount, ok = totalCountFromResults(len(shops), limit, offset); !ok {
+			totalCount = countQuery(queryName, `
+			SELECT count(DISTINCT s.id) AS total_count
+			FROM shop s
+			  JOIN shop_name sn ON s.id = sn.shop_id
+			  JOIN mall_shop ms ON s.id = ms.shop_id
+			  JOIN mall m ON ms.mall_id = m.id
+			WHERE sn.name ILIKE '%' || $1 || '%' AND m.city_id = $2
+			`, name, cityID)
+		}
 	} else {
 		shops = shopsQuery(queryName, orderBy.Compile(`
 		SELECT *
@@ -1054,12 +1097,15 @@ func GetShopsByName(name string, cityID *int, sortKey *string, limit, offset *ui
 		LIMIT $1
 		OFFSET $2
 		`), limit, offset, name)
-		totalCount = countQuery(queryName, `
-		SELECT count(DISTINCT s.id) total_count
-		FROM shop s
-		  JOIN shop_name sn ON s.id = sn.shop_id
-		WHERE sn.name ILIKE '%' || $1 || '%'
-		`, name)
+		var ok bool
+		if totalCount, ok = totalCountFromResults(len(shops), limit, offset); !ok {
+			totalCount = countQuery(queryName, `
+			SELECT count(DISTINCT s.id) total_count
+			FROM shop s
+			  JOIN shop_name sn ON s.id = sn.shop_id
+			WHERE sn.name ILIKE '%' || $1 || '%'
+			`, name)
+		}
 	}
 	return shops, totalCount
 }
@@ -1087,14 +1133,17 @@ func GetShopsByCategory(categoryID int, cityID *int, sortKey *string, limit, off
 		LIMIT $1
 		OFFSET $2
 	`), limit, offset, categoryID, *cityID)
-		totalCount = countQuery(queryName, `
-		SELECT count(DISTINCT s.id) total_count
-		FROM shop s
-		  JOIN shop_category sc ON s.id = sc.shop_id
-		  JOIN mall_shop ms ON s.id = ms.shop_id
-		  JOIN mall m ON ms.mall_id = m.id
-		WHERE sc.category_id = $1 AND m.city_id = $2
-		`, categoryID, *cityID)
+		var ok bool
+		if totalCount, ok = totalCountFromResults(len(shops), limit, offset); !ok {
+			totalCount = countQuery(queryName, `
+			SELECT count(DISTINCT s.id) total_count
+			FROM shop s
+			  JOIN shop_category sc ON s.id = sc.shop_id
+			  JOIN mall_shop ms ON s.id = ms.shop_id
+			  JOIN mall m ON ms.mall_id = m.id
+			WHERE sc.category_id = $1 AND m.city_id = $2
+			`, categoryID, *cityID)
+		}
 	} else {
 		shops = shopsQuery(queryName, orderBy.Compile(`
 		SELECT
@@ -1111,12 +1160,15 @@ func GetShopsByCategory(categoryID int, cityID *int, sortKey *string, limit, off
 		LIMIT $1
 		OFFSET $2
 		`), limit, offset, categoryID)
-		totalCount = countQuery(queryName, `
-		SELECT count(*) total_count
-		FROM shop s
-		  JOIN shop_category sc ON s.id = sc.shop_id
-		WHERE sc.category_id = $1
-		`, categoryID)
+		var ok bool
+		if totalCount, ok = totalCountFromResults(len(shops), limit, offset); !ok {
+			totalCount = countQuery(queryName, `
+			SELECT count(*) total_count
+			FROM shop s
+			  JOIN shop_category sc ON s.id = sc.shop_id
+			WHERE sc.category_id = $1
+			`, categoryID)
+		}
 	}
 	return shops, totalCount
 }

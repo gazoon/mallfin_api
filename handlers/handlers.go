@@ -14,7 +14,7 @@ func MallsList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	formData := mallsListForm{}
 	errs := binding.Form(r, &formData)
 	if errs != nil {
-		errorResponse(w, INVALID_REQUEST_DATA, errs.Error(), http.StatusBadRequest)
+		errorResponse(w, INCORRECT_REQUEST_DATA, errs.Error(), http.StatusBadRequest)
 		return
 	}
 	sortKey := formData.Sort
@@ -26,10 +26,7 @@ func MallsList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	}
 	var malls []*models.Mall
 	var totalCount int
-	if formData.Ids != nil {
-		mallIDs := formData.Ids
-		malls, totalCount = models.GetMallsByIDs(mallIDs)
-	} else if formData.SubwayStation != nil {
+	if formData.SubwayStation != nil {
 		subwayStationID := *formData.SubwayStation
 		if !models.IsSubwayStationExists(subwayStationID) {
 			errorResponse(w, SUBWAY_STATION_NOT_FOUND, "Subway station with such id does not exists.", http.StatusNotFound)
@@ -55,7 +52,7 @@ func MallsList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 func MallDetails(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	mallID, err := ps.ByNameInt("id")
 	if err != nil {
-		errorResponse(w, INVALID_REQUEST_DATA, err.Error(), http.StatusBadRequest)
+		errorResponse(w, INCORRECT_REQUEST_DATA, err.Error(), http.StatusBadRequest)
 		return
 	}
 	mall := models.GetMallDetails(mallID)
@@ -70,7 +67,7 @@ func ShopsList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	formData := shopsListForm{}
 	errs := binding.Form(r, &formData)
 	if errs != nil {
-		errorResponse(w, INVALID_REQUEST_DATA, errs.Error(), http.StatusBadRequest)
+		errorResponse(w, INCORRECT_REQUEST_DATA, errs.Error(), http.StatusBadRequest)
 		return
 	}
 	sortKey := formData.Sort
@@ -82,10 +79,7 @@ func ShopsList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	}
 	var shops []*models.Shop
 	var totalCount int
-	if formData.Ids != nil {
-		shopIDs := formData.Ids
-		shops, totalCount = models.GetShopsByIDs(shopIDs, cityID)
-	} else if formData.Mall != nil {
+	if formData.Mall != nil {
 		mallID := *formData.Mall
 		if !models.IsMallExists(mallID) {
 			errorResponse(w, MALL_NOT_FOUND, "Mall with such id does not exists.", http.StatusNotFound)
@@ -112,12 +106,12 @@ func ShopDetails(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	formData := shopDetailsForm{}
 	errs := binding.Form(r, &formData)
 	if errs != nil {
-		errorResponse(w, INVALID_REQUEST_DATA, errs.Error(), http.StatusBadRequest)
+		errorResponse(w, INCORRECT_REQUEST_DATA, errs.Error(), http.StatusBadRequest)
 		return
 	}
 	shopID, err := ps.ByNameInt("id")
 	if err != nil {
-		errorResponse(w, INVALID_REQUEST_DATA, err.Error(), http.StatusBadRequest)
+		errorResponse(w, INCORRECT_REQUEST_DATA, err.Error(), http.StatusBadRequest)
 		return
 	}
 	cityID := formData.City
@@ -143,7 +137,7 @@ func CategoriesList(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 	formData := categoriesListForm{}
 	errs := binding.Form(r, &formData)
 	if errs != nil {
-		errorResponse(w, INVALID_REQUEST_DATA, errs.Error(), http.StatusBadRequest)
+		errorResponse(w, INCORRECT_REQUEST_DATA, errs.Error(), http.StatusBadRequest)
 		return
 	}
 	sortKey := formData.Sort
@@ -153,10 +147,7 @@ func CategoriesList(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 	}
 	var categories []*models.Category
 	var totalCount int
-	if formData.Ids != nil {
-		categoryIDs := formData.Ids
-		categories, totalCount = models.GetCategoriesByIDs(categoryIDs, cityID)
-	} else if formData.Shop != nil {
+	if formData.Shop != nil {
 		shopID := *formData.Shop
 		if !models.IsShopExists(shopID) {
 			errorResponse(w, SHOP_NOT_FOUND, "Shop with such id does not exists.", http.StatusNotFound)
@@ -173,12 +164,12 @@ func CategoryDetails(w http.ResponseWriter, r *http.Request, ps httprouter.Param
 	formData := categoryDetailsForm{}
 	errs := binding.Form(r, &formData)
 	if errs != nil {
-		errorResponse(w, INVALID_REQUEST_DATA, errs.Error(), http.StatusBadRequest)
+		errorResponse(w, INCORRECT_REQUEST_DATA, errs.Error(), http.StatusBadRequest)
 		return
 	}
 	categoryID, err := ps.ByNameInt("id")
 	if err != nil {
-		errorResponse(w, INVALID_REQUEST_DATA, err.Error(), http.StatusBadRequest)
+		errorResponse(w, INCORRECT_REQUEST_DATA, err.Error(), http.StatusBadRequest)
 		return
 	}
 	cityID := formData.City
@@ -197,7 +188,7 @@ func CitiesList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	formData := citiesListForm{}
 	errs := binding.Form(r, &formData)
 	if errs != nil {
-		errorResponse(w, INVALID_REQUEST_DATA, errs.Error(), http.StatusBadRequest)
+		errorResponse(w, INCORRECT_REQUEST_DATA, errs.Error(), http.StatusBadRequest)
 		return
 	}
 	sortKey := formData.Sort
@@ -216,7 +207,7 @@ func CurrentMall(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	formData := currentMallForm{}
 	errs := binding.Form(r, &formData)
 	if errs != nil {
-		errorResponse(w, INVALID_REQUEST_DATA, errs.Error(), http.StatusBadRequest)
+		errorResponse(w, INCORRECT_REQUEST_DATA, errs.Error(), http.StatusBadRequest)
 		return
 	}
 	userLocation := &models.Location{
@@ -235,7 +226,7 @@ func ShopsInMalls(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	formData := shopsInMallsForm{}
 	errs := binding.Form(r, &formData)
 	if errs != nil {
-		errorResponse(w, INVALID_REQUEST_DATA, errs.Error(), http.StatusBadRequest)
+		errorResponse(w, INCORRECT_REQUEST_DATA, errs.Error(), http.StatusBadRequest)
 		return
 	}
 	mallIDs := formData.Malls
@@ -248,7 +239,7 @@ func Search(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	formData := searchForm{}
 	errs := binding.Form(r, &formData)
 	if errs != nil {
-		errorResponse(w, INVALID_REQUEST_DATA, errs.Error(), http.StatusBadRequest)
+		errorResponse(w, INCORRECT_REQUEST_DATA, errs.Error(), http.StatusBadRequest)
 		return
 	}
 	limit := formData.Limit

@@ -29,7 +29,7 @@ http status != 200
 ```
 error.code это код ошибки на который нужно смотреть.
 error.status дублирует http status.
-Любой запрос точно может вернуть код "INVALID_REQUEST_DATA" это означает что данные пришли не в том типе, формате, диапазоне и т.д.
+Любой запрос точно может вернуть код "INCORRECT_REQUEST_DATA" это означает что данные пришли не в том типе, формате, диапазоне и т.д.
 
 - Если запрос подразумевает пагинацию, то данные в ответе ( то что в поле "data") будут выглядеть так:
 ```json
@@ -85,7 +85,7 @@ results список объектов
 
 * **Error Responses:**
 
-    400, "INVALID_REQUEST_DATA"
+    400, "INCORRECT_REQUEST_DATA"
 
     404, "SHOP_NOT_FOUND"
 
@@ -108,7 +108,7 @@ results список объектов
 
 * **Error Responses:**
 
-    400, "INVALID_REQUEST_DATA"
+    400, "INCORRECT_REQUEST_DATA"
 
     404, "MALL_NOT_FOUND"
 
@@ -143,7 +143,7 @@ results список объектов
 
 * **Error Responses:**
 
-    400, "INVALID_REQUEST_DATA"
+    400, "INCORRECT_REQUEST_DATA"
 
     404, "MALL_NOT_FOUND"
 
@@ -172,7 +172,7 @@ results список объектов
 
 * **Error Responses:**
 
-    400, "INVALID_REQUEST_DATA"
+    400, "INCORRECT_REQUEST_DATA"
 
     404, "SHOP_NOT_FOUND"
 
@@ -201,7 +201,7 @@ results список объектов
 
 * **Error Responses:**
 
-    400, "INVALID_REQUEST_DATA"
+    400, "INCORRECT_REQUEST_DATA"
 
     404, "SHOP_NOT_FOUND"
 
@@ -224,7 +224,7 @@ results список объектов
 
 * **Error Responses:**
 
-    400, "INVALID_REQUEST_DATA"
+    400, "INCORRECT_REQUEST_DATA"
 
     404, "CATEGORY_NOT_FOUND"
 
@@ -247,7 +247,7 @@ results список объектов
 
 * **Error Responses:**
 
-    400, "INVALID_REQUEST_DATA"
+    400, "INCORRECT_REQUEST_DATA"
 
 
 **Current mall**
@@ -268,7 +268,7 @@ results список объектов
 
 * **Error Responses:**
 
-    400, "INVALID_REQUEST_DATA"
+    400, "INCORRECT_REQUEST_DATA"
 
     404, "MALL_NOT_FOUND"
 
@@ -318,7 +318,7 @@ results список объектов
 
 * **Error Responses:**
 
-    400, "INVALID_REQUEST_DATA"
+    400, "INCORRECT_REQUEST_DATA"
 
 
 **Search**
@@ -398,7 +398,7 @@ results список объектов
 
 * **Error Responses:**
 
-    400, "INVALID_REQUEST_DATA"
+    400, "INCORRECT_REQUEST_DATA"
 
     404, "CITY_NOT_FOUND"
 

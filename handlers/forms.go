@@ -12,7 +12,6 @@ type mallsListForm struct {
 	Shop          *int
 	Query         *string
 	SubwayStation *int
-	Ids           []int
 	Sort          *string
 	Limit         *uint
 	Offset        *uint
@@ -24,7 +23,6 @@ func (mlf *mallsListForm) FieldMap(req *http.Request) binding.FieldMap {
 		&mlf.Shop:          "shop",
 		&mlf.SubwayStation: "subway_station",
 		&mlf.Query:         "query",
-		&mlf.Ids:           "ids",
 		&mlf.Sort:          "sort",
 		&mlf.Limit:         "limit",
 		&mlf.Offset:        "offset",
@@ -41,7 +39,6 @@ type shopsListForm struct {
 	Mall     *int
 	Query    *string
 	Category *int
-	Ids      []int
 	Sort     *string
 	Limit    *uint
 	Offset   *uint
@@ -53,7 +50,6 @@ func (slf *shopsListForm) FieldMap(req *http.Request) binding.FieldMap {
 		&slf.Mall:     "mall",
 		&slf.Category: "category",
 		&slf.Query:    "query",
-		&slf.Ids:      "ids",
 		&slf.Sort:     "sort",
 		&slf.Limit:    "limit",
 		&slf.Offset:   "offset",
@@ -82,7 +78,6 @@ func (sdf *shopDetailsForm) FieldMap(req *http.Request) binding.FieldMap {
 type categoriesListForm struct {
 	City *int
 	Shop *int
-	Ids  []int
 	Sort *string
 }
 
@@ -90,7 +85,6 @@ func (clf *categoriesListForm) FieldMap(req *http.Request) binding.FieldMap {
 	return binding.FieldMap{
 		&clf.City: "city",
 		&clf.Shop: "shop",
-		&clf.Ids:  "ids",
 		&clf.Sort: "sort",
 	}
 }
