@@ -3,7 +3,6 @@ package db
 import (
 	"database/sql"
 	"fmt"
-	"github.com/jackc/pgx"
 	"mallfin_api/config"
 	"os/exec"
 	"strconv"
@@ -20,13 +19,15 @@ var (
 
 func createNewDBConnection(dbName string) *sql.DB {
 	dbConf := config.Postgres()
-	conn, err := sql.Open("postgres", fmt.Sprintf("dbname=%s user=%s password=%s host=%s port=%d sslmode=%s", dbName, dbConf.User, dbConf.Password, dbConf.Host, dbConf.Port, dbConf.SSL))
+	conn, err := sql.Open("postgres", fmt.Sprintf("dbname=%s user=%s password=%s host=%s port=%d", dbName, dbConf.User, dbConf.Password, dbConf.Host, dbConf.Port))
 	if err == nil {
 		err = conn.Ping()
 	}
 	if err != nil {
 		moduleLog.WithFields(log.Fields{"conf": dbConf, "db": dbName}).Panicf("Cannot connect to postgresql: %s", err)
 	}
+	conn.SetMaxIdleConns(dbConf.PoolSize)
+	conn.SetMaxOpenConns(dbConf.PoolSize)
 	return conn
 }
 func getAllTables() []string {
@@ -87,37 +88,9 @@ func setNewConnection(conn *sql.DB) {
 	closeCurrentConn()
 	db = conn
 }
-func createNewPool() *pgx.ConnPool {
-	dbConf := config.Postgres()
-	connPoolConfig := pgx.ConnPoolConfig{
-		ConnConfig: pgx.ConnConfig{
-			Host:     dbConf.Host,
-			User:     dbConf.User,
-			Password: dbConf.Password,
-			Database: dbConf.Name,
-			Port:     uint16(dbConf.Port),
-		},
-		MaxConnections: 20,
-	}
-	pool, err := pgx.NewConnPool(connPoolConfig)
-	if err != nil {
-		panic(err)
-	}
-	return pool
-}
-
-var pgxConn *pgx.ConnPool
-
 func Initialization() {
 	conn := createNewDBConnection(config.Postgres().Name)
 	setNewConnection(conn)
-	pgxConn = createNewPool()
-}
-func GetPgxConnection() *pgx.ConnPool {
-	if pgxConn == nil {
-		moduleLog.Panic("Postgres has not initialized yet")
-	}
-	return pgxConn
 }
 func GetConnection() *sql.DB {
 	if db == nil {
