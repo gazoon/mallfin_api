@@ -19,7 +19,7 @@ var (
 
 func createNewDBConnection(dbName string) *sql.DB {
 	dbConf := config.Postgres()
-	conn, err := sql.Open("postgres", fmt.Sprintf("dbname=%s user=%s password=%s host=%s port=%d", dbName, dbConf.User, dbConf.Password, dbConf.Host, dbConf.Port))
+	conn, err := sql.Open("postgres", fmt.Sprintf("dbname=%s user=%s password=%s host=%s port=%d sslmode=disable", dbName, dbConf.User, dbConf.Password, dbConf.Host, dbConf.Port))
 	if err == nil {
 		err = conn.Ping()
 	}
@@ -69,7 +69,7 @@ func FlushDB() {
 }
 func dbDump() []byte {
 	dbConf := config.Postgres()
-	cmd := exec.Command("pg_dump", "-h", dbConf.Host, "-p", strconv.Itoa(dbConf.Port), "-U", dbConf.User, "-d", dbConf.Name,
+	cmd := exec.Command("pg_dump", "-h", dbConf.Host, "-p", strconv.Itoa(dbConf.Port), "-U", dbConf.User, "-d", dbConf.DBName,
 		"--schema-only", "--no-owner", "--no-privileges")
 
 	cmd.Env = []string{fmt.Sprintf("PGPASSWORD=%s", dbConf.Password)}
@@ -89,7 +89,7 @@ func setNewConnection(conn *sql.DB) {
 	db = conn
 }
 func Initialization() {
-	conn := createNewDBConnection(config.Postgres().Name)
+	conn := createNewDBConnection(config.Postgres().DBName)
 	setNewConnection(conn)
 }
 func GetConnection() *sql.DB {
@@ -101,8 +101,8 @@ func GetConnection() *sql.DB {
 func InitializationForTests() {
 	dump := dbDump()
 	dbConf := config.Postgres()
-	testDBName := fmt.Sprintf("%s_test", dbConf.Name)
-	tmpConn := createNewDBConnection(dbConf.Name)
+	testDBName := fmt.Sprintf("%s_test", dbConf.DBName)
+	tmpConn := createNewDBConnection(dbConf.DBName)
 	_, err := tmpConn.Exec(fmt.Sprintf(`DROP DATABASE IF EXISTS %s`, testDBName))
 	if err != nil {
 		moduleLog.Panicf("Cannot drop previous test db: %s", err)

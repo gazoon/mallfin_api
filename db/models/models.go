@@ -12,6 +12,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/gazoon/pq"
 	"mallfin_api/utils"
+	"reflect"
 )
 
 var moduleLog = log.WithField("location", "models")
@@ -307,7 +308,18 @@ func searchResultsQuery(queryName, query string, args ...interface{}) []*SearchR
 		locLog.Panicf("Error after scaning search results rows: %s", err)
 	}
 	return searchResults
-
+}
+func computeTotalCount3(resultsLen int, limit, offset *uint, queryName, query string, args ...interface{}) int {
+	var totalCount int
+	if (limit == nil || *limit == 0) && (offset == nil || *offset == 0 || resultsLen != 0) {
+		totalCount = resultsLen
+		if offset != nil {
+			totalCount += int(*offset)
+		}
+	} else {
+		totalCount = countQuery(queryName, query, args...)
+	}
+	return totalCount
 }
 func GetSearchResults(shopIDs []int, cityID *int, sortKey *string, limit, offset *uint) ([]*SearchResult, int) {
 	if len(shopIDs) == 0 {
@@ -642,7 +654,7 @@ func GetMalls(cityID *int, sortKey *string, limit, offset *uint) ([]*Mall, int) 
 	}
 	return malls, totalCount
 }
-func GetMallsByIds(mallIDs []int) ([]*Mall, int) {
+func GetMallsByIDs(mallIDs []int) ([]*Mall, int) {
 	if len(mallIDs) == 0 {
 		return nil, 0
 	}
@@ -661,12 +673,7 @@ func GetMallsByIds(mallIDs []int) ([]*Mall, int) {
 	FROM mall m
 	WHERE m.id = ANY($1)
 	`, mallIDsArray)
-	totalCount := countQuery(queryName, `
-	SELECT
-	  count(*) total_count
-	FROM mall m
-	WHERE m.id = ANY($1)
-	`, mallIDsArray)
+	totalCount := len(malls)
 	return malls, totalCount
 }
 func GetMallsBySubwayStation(subwayStationID int, sortKey *string, limit, offset *uint) ([]*Mall, int) {
@@ -978,7 +985,7 @@ func GetShopsByMall(mallID int, sortKey *string, limit, offset *uint) ([]*Shop, 
 	`, mallID)
 	return shops, totalCount
 }
-func GetShopsByIds(shopIDs []int, cityID *int) ([]*Shop, int) {
+func GetShopsByIDs(shopIDs []int, cityID *int) ([]*Shop, int) {
 	if len(shopIDs) == 0 {
 		return nil, 0
 	}
@@ -995,12 +1002,7 @@ func GetShopsByIds(shopIDs []int, cityID *int) ([]*Shop, int) {
 	FROM shop s
 	WHERE s.id = ANY($1)
 	`, shopIDsArray)
-	totalCount := countQuery(queryName, `
-	SELECT
-	  count(*) total_count
-	FROM shop s
-	WHERE s.id = ANY($1)
-	`, shopIDsArray)
+	totalCount := len(shops)
 	return shops, totalCount
 }
 func GetShopsByName(name string, cityID *int, sortKey *string, limit, offset *uint) ([]*Shop, int) {
@@ -1175,13 +1177,10 @@ func GetCategories(cityID *int, sortKey *string) ([]*Category, int) {
 	FROM category c
 	ORDER BY %s
 	`))
-	totalCount := countQuery(queryName, `
-	SELECT count(*) total_count
-	FROM category c
-	`)
+	totalCount := len(categories)
 	return categories, totalCount
 }
-func GetCategoriesByIds(categoryIDs []int, cityID *int) ([]*Category, int) {
+func GetCategoriesByIDs(categoryIDs []int, cityID *int) ([]*Category, int) {
 	categoryIDsArray := pq.Array(categoryIDs)
 	queryName := utils.CurrentFuncName()
 	categories := categoriesQuery(queryName, `
@@ -1194,11 +1193,7 @@ func GetCategoriesByIds(categoryIDs []int, cityID *int) ([]*Category, int) {
 	FROM category c
 	WHERE c.id = ANY ($1)
 	`, categoryIDsArray)
-	totalCount := countQuery(queryName, `
-	SELECT count(*) total_count
-	FROM category c
-	WHERE c.id = ANY ($1)
-	`, categoryIDsArray)
+	totalCount := len(categories)
 	return categories, totalCount
 }
 func GetCategoriesByShop(shopID int, cityID *int, sortKey *string) ([]*Category, int) {
@@ -1216,12 +1211,7 @@ func GetCategoriesByShop(shopID int, cityID *int, sortKey *string) ([]*Category,
 	WHERE sc.shop_id = $1
 	ORDER BY %s
 	`), shopID)
-	totalCount := countQuery(queryName, `
-	SELECT count(*) total_count
-	FROM category c
-	  JOIN shop_category sc ON c.id = sc.category_id
-	WHERE sc.shop_id = $1
-	`, shopID)
+	totalCount := len(categories)
 	return categories, totalCount
 }
 func categoriesQuery(queryName, query string, args ...interface{}) []*Category {
@@ -1257,10 +1247,7 @@ func GetCities(sortKey *string) ([]*City, int) {
 	FROM city c
 	ORDER BY %s
 	`))
-	totalCount := countQuery(queryName, `
-	SELECT count(*) total_count
-	FROM city c
-	`)
+	totalCount := len(cities)
 	return cities, totalCount
 }
 func GetCitiesByName(name string, sortKey *string) ([]*City, int) {
@@ -1274,11 +1261,7 @@ func GetCitiesByName(name string, sortKey *string) ([]*City, int) {
 	WHERE c.name ILIKE '%%' || $1 || '%%'
 	ORDER BY %s
 	`), name)
-	totalCount := countQuery(queryName, `
-	SELECT count(*) total_count
-	FROM city c
-	WHERE c.name ILIKE '%%' || $1 || '%%'
-	`, name)
+	totalCount := len(cities)
 	return cities, totalCount
 }
 func citiesQuery(queryName, query string, args ...interface{}) []*City {

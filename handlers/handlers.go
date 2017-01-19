@@ -28,7 +28,7 @@ func MallsList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	var totalCount int
 	if formData.Ids != nil {
 		mallIDs := formData.Ids
-		malls, totalCount = models.GetMallsByIds(mallIDs)
+		malls, totalCount = models.GetMallsByIDs(mallIDs)
 	} else if formData.SubwayStation != nil {
 		subwayStationID := *formData.SubwayStation
 		if !models.IsSubwayStationExists(subwayStationID) {
@@ -84,7 +84,7 @@ func ShopsList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	var totalCount int
 	if formData.Ids != nil {
 		shopIDs := formData.Ids
-		shops, totalCount = models.GetShopsByIds(shopIDs, cityID)
+		shops, totalCount = models.GetShopsByIDs(shopIDs, cityID)
 	} else if formData.Mall != nil {
 		mallID := *formData.Mall
 		if !models.IsMallExists(mallID) {
@@ -155,7 +155,7 @@ func CategoriesList(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 	var totalCount int
 	if formData.Ids != nil {
 		categoryIDs := formData.Ids
-		categories, totalCount = models.GetCategoriesByIds(categoryIDs, cityID)
+		categories, totalCount = models.GetCategoriesByIDs(categoryIDs, cityID)
 	} else if formData.Shop != nil {
 		shopID := *formData.Shop
 		if !models.IsShopExists(shopID) {

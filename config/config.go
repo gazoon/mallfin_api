@@ -42,7 +42,7 @@ type PostgresSettings struct {
 	Port     int    `json:"port"`
 	User     string `json:"user"`
 	Password string `json:"password"`
-	Name     string `json:"name"`
+	DBName   string `json:"name"`
 	PoolSize int    `json:"pool_size"`
 }
 type RedisSettings struct {
