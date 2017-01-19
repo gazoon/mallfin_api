@@ -13,8 +13,8 @@ type mallsListForm struct {
 	Query         *string
 	SubwayStation *int
 	Sort          *string
-	Limit         *uint
-	Offset        *uint
+	Limit         *int
+	Offset        *int
 }
 
 func (mlf *mallsListForm) FieldMap(req *http.Request) binding.FieldMap {
@@ -31,7 +31,9 @@ func (mlf *mallsListForm) FieldMap(req *http.Request) binding.FieldMap {
 
 func (mlf *mallsListForm) Validate(req *http.Request, errs binding.Errors) binding.Errors {
 	sortKeys := models.MALLS_SORT_KEYS
-	return checkSortKey(sortKeys, mlf.Sort, errs)
+	errs = checkSortKey(sortKeys, mlf.Sort, errs)
+	errs = checkLimitOffset(mlf.Limit, mlf.Offset, errs)
+	return errs
 }
 
 type shopsListForm struct {
@@ -40,8 +42,8 @@ type shopsListForm struct {
 	Query    *string
 	Category *int
 	Sort     *string
-	Limit    *uint
-	Offset   *uint
+	Limit    *int
+	Offset   *int
 }
 
 func (slf *shopsListForm) FieldMap(req *http.Request) binding.FieldMap {
@@ -58,7 +60,9 @@ func (slf *shopsListForm) FieldMap(req *http.Request) binding.FieldMap {
 
 func (slf *shopsListForm) Validate(req *http.Request, errs binding.Errors) binding.Errors {
 	sortKeys := models.SHOPS_SORT_KEYS
-	return checkSortKey(sortKeys, slf.Sort, errs)
+	errs = checkSortKey(sortKeys, slf.Sort, errs)
+	errs = checkLimitOffset(slf.Limit, slf.Offset, errs)
+	return errs
 }
 
 type shopDetailsForm struct {
@@ -155,8 +159,8 @@ type searchForm struct {
 	LocationLat *float64
 	LocationLon *float64
 	Sort        *string
-	Limit       *uint
-	Offset      *uint
+	Limit       *int
+	Offset      *int
 }
 
 func (sf *searchForm) FieldMap(req *http.Request) binding.FieldMap {
@@ -170,6 +174,7 @@ func (sf *searchForm) FieldMap(req *http.Request) binding.FieldMap {
 		&sf.Offset:      "offset",
 	}
 }
+
 func (sf *searchForm) Validate(req *http.Request, errs binding.Errors) binding.Errors {
 	var sortKeys *models.SortKeyToOrderBy
 	if sf.LocationLat != nil && sf.LocationLon != nil {
@@ -177,7 +182,9 @@ func (sf *searchForm) Validate(req *http.Request, errs binding.Errors) binding.E
 	} else {
 		sortKeys = models.SEARCH_SORT_KEYS
 	}
-	return checkSortKey(sortKeys, sf.Sort, errs)
+	errs = checkSortKey(sortKeys, sf.Sort, errs)
+	errs = checkLimitOffset(sf.Limit, sf.Offset, errs)
+	return errs
 }
 
 func checkSortKey(validSortKeys *models.SortKeyToOrderBy, sortKey *string, errs binding.Errors) binding.Errors {
@@ -185,6 +192,21 @@ func checkSortKey(validSortKeys *models.SortKeyToOrderBy, sortKey *string, errs 
 		errs = append(errs, binding.Error{
 			FieldNames: []string{"sort"},
 			Message:    fmt.Sprintf("Invalid sort key for list of cities, valid values: %s.", validSortKeys.FmtKeys()),
+		})
+	}
+	return errs
+}
+func checkLimitOffset(limit, offset *int, errs binding.Errors) binding.Errors {
+	if limit != nil && *limit < 0 {
+		errs = append(errs, binding.Error{
+			FieldNames: []string{"limit"},
+			Message:    "limit must be non-negative int",
+		})
+	}
+	if offset != nil && *offset < 0 {
+		errs = append(errs, binding.Error{
+			FieldNames: []string{"offset"},
+			Message:    "offset must be non-negative int",
 		})
 	}
 	return errs

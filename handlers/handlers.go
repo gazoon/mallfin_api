@@ -47,7 +47,7 @@ func MallsList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		malls, totalCount = models.GetMalls(cityID, sortKey, limit, offset)
 	}
 	serialized := serializers.SerializeMalls(malls)
-	listResponse(w, serialized, totalCount)
+	paginateResponse(w, r, serialized, totalCount, limit, offset)
 }
 func MallDetails(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	mallID, err := ps.ByNameInt("id")
@@ -61,7 +61,7 @@ func MallDetails(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		return
 	}
 	serialized := serializers.SerializeMall(mall)
-	objectResponse(w, serialized)
+	response(w, serialized)
 }
 func ShopsList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	formData := shopsListForm{}
@@ -100,7 +100,7 @@ func ShopsList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		shops, totalCount = models.GetShops(cityID, sortKey, limit, offset)
 	}
 	serialized := serializers.SerializeShops(shops)
-	listResponse(w, serialized, totalCount)
+	paginateResponse(w, r, serialized, totalCount, limit, offset)
 }
 func ShopDetails(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	formData := shopDetailsForm{}
@@ -131,7 +131,7 @@ func ShopDetails(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		return
 	}
 	serialized := serializers.SerializeShop(shop)
-	objectResponse(w, serialized)
+	response(w, serialized)
 }
 func CategoriesList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	formData := categoriesListForm{}
@@ -146,19 +146,18 @@ func CategoriesList(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 		return
 	}
 	var categories []*models.Category
-	var totalCount int
 	if formData.Shop != nil {
 		shopID := *formData.Shop
 		if !models.IsShopExists(shopID) {
 			errorResponse(w, SHOP_NOT_FOUND, "Shop with such id does not exists.", http.StatusNotFound)
 			return
 		}
-		categories, totalCount = models.GetCategoriesByShop(shopID, cityID, sortKey)
+		categories = models.GetCategoriesByShop(shopID, cityID, sortKey)
 	} else {
-		categories, totalCount = models.GetCategories(cityID, sortKey)
+		categories = models.GetCategories(cityID, sortKey)
 	}
 	serialized := serializers.SerializeCategories(categories)
-	listResponse(w, serialized, totalCount)
+	response(w, serialized)
 }
 func CategoryDetails(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	formData := categoryDetailsForm{}
@@ -182,7 +181,7 @@ func CategoryDetails(w http.ResponseWriter, r *http.Request, ps httprouter.Param
 		return
 	}
 	serialized := serializers.SerializeCategory(category)
-	objectResponse(w, serialized)
+	response(w, serialized)
 }
 func CitiesList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	formData := citiesListForm{}
@@ -193,15 +192,14 @@ func CitiesList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	}
 	sortKey := formData.Sort
 	var cities []*models.City
-	var totalCount int
 	if formData.Query != nil {
 		name := *formData.Query
-		cities, totalCount = models.GetCitiesByName(name, sortKey)
+		cities = models.GetCitiesByName(name, sortKey)
 	} else {
-		cities, totalCount = models.GetCities(sortKey)
+		cities = models.GetCities(sortKey)
 	}
 	serialized := serializers.SerializeCities(cities)
-	listResponse(w, serialized, totalCount)
+	response(w, serialized)
 }
 func CurrentMall(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	formData := currentMallForm{}
@@ -220,7 +218,7 @@ func CurrentMall(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		return
 	}
 	serialized := serializers.SerializeMall(mall)
-	objectResponse(w, serialized)
+	response(w, serialized)
 }
 func ShopsInMalls(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	formData := shopsInMallsForm{}
@@ -233,7 +231,7 @@ func ShopsInMalls(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	shopIDs := formData.Shops
 	mallsShops := models.GetShopsInMalls(mallIDs, shopIDs)
 	serialized := serializers.SerializeShopsInMalls(mallsShops)
-	objectResponse(w, serialized)
+	response(w, serialized)
 }
 func Search(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	formData := searchForm{}
@@ -262,5 +260,5 @@ func Search(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		searchResults, totalCount = models.GetSearchResults(shopIDs, cityID, sortKey, limit, offset)
 	}
 	serialized := serializers.SerializeSearchResults(searchResults)
-	listResponse(w, serialized, totalCount)
+	paginateResponse(w, r, serialized, totalCount, limit, offset)
 }

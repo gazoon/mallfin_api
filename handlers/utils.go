@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"net/http"
 
-	log "github.com/Sirupsen/logrus"
 	"mallfin_api/db/models"
 	"reflect"
+	"strconv"
+
+	log "github.com/Sirupsen/logrus"
 )
 
 const (
@@ -31,9 +33,11 @@ type ErrorResponse struct {
 type SuccessResponse struct {
 	Data interface{} `json:"data"`
 }
-type ListData struct {
+type PaginationData struct {
 	Count      int         `json:"count"`
 	TotalCount int         `json:"total_count"`
+	Next       *string     `json:"next"`
+	Prev       *string     `json:"prev"`
 	Results    interface{} `json:"results"`
 }
 
@@ -55,15 +59,68 @@ func response(w http.ResponseWriter, data interface{}) {
 	resp := SuccessResponse{Data: data}
 	writeJSON(w, resp, http.StatusOK)
 }
-func objectResponse(w http.ResponseWriter, object interface{}) {
-	data := object
-	response(w, data)
+
+func nextPage(totalCount, limit, offset int) (int, int, bool) {
+	if limit+offset >= totalCount {
+		return 0, 0, false
+	}
+	nextOffset := limit + offset
+	nextLimit := limit
+	if nextOffset+nextLimit > totalCount {
+		nextLimit = totalCount - nextOffset
+	}
+	return nextLimit, nextOffset, true
 }
-func listResponse(w http.ResponseWriter, resultsList interface{}, totalCount int) {
-	data := &ListData{
+func prevPage(totalCount, limit, offset int) (int, int, bool) {
+	if offset == 0 {
+		return 0, 0, false
+	}
+	var prevOffset int
+	var prevLimit int
+	if offset < limit {
+		prevOffset = 0
+		prevLimit = offset
+	} else {
+		prevOffset = offset - limit
+		prevLimit = limit
+	}
+	return prevLimit, prevOffset, true
+
+}
+func pageURL(r *http.Request, limit, offset int) string {
+	url := r.URL
+	params := url.Query()
+	params.Set("limit", strconv.Itoa(limit))
+	params.Set("offset", strconv.Itoa(offset))
+	url.RawQuery = params.Encode()
+	return url.String()
+
+}
+func paginateResponse(w http.ResponseWriter, r *http.Request, resultsList interface{}, totalCount int, limit, offset *int) {
+	limitValue := totalCount
+	if limit != nil {
+		limitValue = *limit
+	}
+	offsetValue := 0
+	if offset != nil {
+		offsetValue = *offset
+	}
+	var nextPageURL *string = nil
+	if nextLimit, nextOffset, ok := nextPage(totalCount, limitValue, offsetValue); ok {
+		url := pageURL(r, nextLimit, nextOffset)
+		nextPageURL = &url
+	}
+	var prevPageURL *string = nil
+	if prevLimit, prevOffset, ok := prevPage(totalCount, limitValue, offsetValue); ok {
+		url := pageURL(r, prevLimit, prevOffset)
+		prevPageURL = &url
+	}
+	data := &PaginationData{
 		TotalCount: totalCount,
 		Count:      reflect.ValueOf(resultsList).Len(),
 		Results:    resultsList,
+		Next:       nextPageURL,
+		Prev:       prevPageURL,
 	}
 	response(w, data)
 }
