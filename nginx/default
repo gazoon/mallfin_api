@@ -31,7 +31,7 @@ server {
 
     location /malls/ {
         include /etc/nginx/cors.conf;
-        set $key "nginx-cache:$uri";
+        set $key "$uri";
         set_escape_uri $escaped_key $key;
         srcache_fetch GET /redis-fetch $key;
         srcache_store PUT /redis-store key=$escaped_key;
@@ -39,7 +39,7 @@ server {
     }
     location = /malls/ {
         include /etc/nginx/cors.conf;
-        set $key "nginx-cache:$uri?city=$arg_city&shop=$arg_shop&query=$arg_query&subway_station=$arg_subway_station&sort=$arg_sort&limit=$arg_limit&offset=$arg_offset";
+        set $key "$uri?city=$arg_city&shop=$arg_shop&query=$arg_query&subway_station=$arg_subway_station&sort=$arg_sort&limit=$arg_limit&offset=$arg_offset";
         set_escape_uri $escaped_key $key;
         srcache_fetch GET /redis-fetch $key;
         srcache_store PUT /redis-store key=$escaped_key;
@@ -47,7 +47,7 @@ server {
     }
     location = /shops/ {
         include /etc/nginx/cors.conf;
-        set $key "nginx-cache:$uri?city=$arg_city&query=$arg_query&mall=$arg_mall&category=$arg_category&sort=$arg_sort&limit=$arg_limit&offset=$arg_offset";
+        set $key "$uri?city=$arg_city&query=$arg_query&mall=$arg_mall&category=$arg_category&sort=$arg_sort&limit=$arg_limit&offset=$arg_offset";
         set_escape_uri $escaped_key $key;
         srcache_fetch GET /redis-fetch $key;
         srcache_store PUT /redis-store key=$escaped_key;
@@ -55,7 +55,7 @@ server {
     }
     location = /categories/ {
         include /etc/nginx/cors.conf;
-        set $key "nginx-cache:$uri?city=$arg_city&shop=$arg_shop&sort=$arg_sort";
+        set $key "$uri?city=$arg_city&shop=$arg_shop&sort=$arg_sort";
         set_escape_uri $escaped_key $key;
         srcache_fetch GET /redis-fetch $key;
         srcache_store PUT /redis-store key=$escaped_key;
@@ -63,7 +63,7 @@ server {
     }
     location  /categories/ {
         include /etc/nginx/cors.conf;
-        set $key "nginx-cache:$uri?city=$arg_city";
+        set $key "$uri?city=$arg_city";
         set_escape_uri $escaped_key $key;
         srcache_fetch GET /redis-fetch $key;
         srcache_store PUT /redis-store key=$escaped_key;
@@ -71,7 +71,7 @@ server {
     }
     location = /cities/ {
         include /etc/nginx/cors.conf;
-        set $key "nginx-cache:$uri?query=$arg_query&sort=$arg_sort";
+        set $key "$uri?query=$arg_query&sort=$arg_sort";
         set_escape_uri $escaped_key $key;
         srcache_fetch GET /redis-fetch $key;
         srcache_store PUT /redis-store key=$escaped_key;
@@ -86,12 +86,14 @@ server {
     location /redis-fetch {
         internal  ;
         set  $redis_key $args;
+        set $redis_db 2;
         redis_pass redisbackend;
     }
 
     location /redis-store {
         internal  ;
         set_unescape_uri $key $arg_key ;
+        set $redis_db 2;
         redis2_query  set $key $echo_request_body;
         redis2_query expire $key 14400;
         redis2_pass  redisbackend;
