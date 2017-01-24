@@ -4,12 +4,17 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	log "github.com/Sirupsen/logrus"
 	"io/ioutil"
 	"math/rand"
 	"net/http"
+	"net/url"
+	"strconv"
 	"sync"
 	"time"
+
+	log "github.com/Sirupsen/logrus"
+	"net"
+	"reflect"
 )
 
 var (
@@ -39,6 +44,13 @@ func randomIntSlice(elems []int) []int {
 	start := rand.Intn(end)
 	return elems[start:end]
 }
+func intsToStrings(a []int) []string {
+	var results []string
+	for _, x := range a {
+		results = append(results, strconv.Itoa(x))
+	}
+	return results
+}
 func randomStringElem(elems []string) string {
 	return elems[rand.Intn(len(elems))]
 }
@@ -61,7 +73,11 @@ type MallsByQuery struct {
 
 func (r *MallsByQuery) URL() string {
 	query := randomStringElem(r.queries)
-	return fmt.Sprintf("/malls/?city=%d&sort=name&query=%s", cityID, query)
+	params := url.Values{}
+	params.Add("city", strconv.Itoa(cityID))
+	params.Add("sort", "name")
+	params.Add("query", query)
+	return fmt.Sprintf("/malls/?%s", params.Encode())
 }
 
 type MallDetails struct {
@@ -83,12 +99,16 @@ func (r *ShopsByMall) URL() string {
 }
 
 type ShopsByQuery struct {
-	queries []int
+	queries []string
 }
 
 func (r *ShopsByQuery) URL() string {
 	query := randomStringElem(r.queries)
-	return fmt.Sprintf("/shops/?city=%d&sort=name&query=%s", cityID, query)
+	params := url.Values{}
+	params.Add("city", strconv.Itoa(cityID))
+	params.Add("sort", "name")
+	params.Add("query", query)
+	return fmt.Sprintf("/shops/?%s", params.Encode())
 }
 
 type ShopsByCategory struct {
@@ -97,7 +117,7 @@ type ShopsByCategory struct {
 
 func (r *ShopsByCategory) URL() string {
 	category := randomIntElem(r.categoryIDs)
-	return fmt.Sprintf("/shops/?city=%d&sort=name&category=%s", cityID, category)
+	return fmt.Sprintf("/shops/?city=%d&sort=name&category=%d&limit=%d", cityID, category, limit)
 }
 
 type ShopDetails struct {
@@ -128,7 +148,10 @@ type ShopsInMalls struct {
 }
 
 func (r *ShopsInMalls) URL() string {
-
+	randomShops := randomIntSlice(r.shopIDs)
+	randomMalls := randomIntSlice(r.mallIDs)
+	params := url.Values{"shops": intsToStrings(randomShops), "malls": intsToStrings(randomMalls)}
+	return fmt.Sprintf("/shops_in_malls/?%s", params.Encode())
 }
 
 type Search struct {
@@ -136,21 +159,21 @@ type Search struct {
 }
 
 func (r *Search) URL() string {
-
+	randomShops := randomIntSlice(r.shopIDs)
+	params := url.Values{"shops": intsToStrings(randomShops)}
+	return fmt.Sprintf("/search/?city=%d&location_lat=%f&location_lon=%f&sort=distance&limit=%d&%s", cityID, locationLat, locationLon, limit, params.Encode())
 }
 
-//func IDsRequest(url string) []int {
-//	resp,err:=http.Get(url)
-//	if err!= nil {
-//		log.WithField("url",url).Panicf("Cannot get ids: %s",err)
-//	}
-//
-//}
 type ListOfIDs []struct {
 	ID int `json:"id"`
 }
+type CategoriesResponse struct {
+	Data ListOfIDs `json:"data"`
+}
 type PaginationResponse struct {
-	Results ListOfIDs `json:"results"`
+	Data struct {
+		Results ListOfIDs `json:"results"`
+	} `json:"data"`
 }
 
 func getShops() []int {
@@ -166,13 +189,13 @@ func getShops() []int {
 		locLog.Panicf("Expect ok status, get: %d", resp.StatusCode)
 	}
 	d := json.NewDecoder(resp.Body)
-	data := PaginationResponse{}
-	err = d.Decode(&data)
+	body := PaginationResponse{}
+	err = d.Decode(&body)
 	if err != nil {
 		locLog.Panicf("Cannot decode response: %s", err)
 	}
 	var shopIDs []int
-	for _, result := range data.Results {
+	for _, result := range body.Data.Results {
 		shopIDs = append(shopIDs, result.ID)
 	}
 	if len(shopIDs) != SHOPS_COUNT {
@@ -193,13 +216,13 @@ func getMalls() []int {
 		locLog.Panicf("Expect ok status, get: %d", resp.StatusCode)
 	}
 	d := json.NewDecoder(resp.Body)
-	data := PaginationResponse{}
-	err = d.Decode(&data)
+	body := PaginationResponse{}
+	err = d.Decode(&body)
 	if err != nil {
 		locLog.Panicf("Cannot decode response: %s", err)
 	}
 	var mallIDs []int
-	for _, result := range data.Results {
+	for _, result := range body.Data.Results {
 		mallIDs = append(mallIDs, result.ID)
 	}
 	if len(mallIDs) != MALLS_COUNT {
@@ -219,13 +242,13 @@ func getCategories() []int {
 		locLog.Panicf("Expect ok status, get: %d", resp.StatusCode)
 	}
 	d := json.NewDecoder(resp.Body)
-	data := ListOfIDs{}
-	err = d.Decode(&data)
+	body := CategoriesResponse{}
+	err = d.Decode(&body)
 	if err != nil {
 		locLog.Panicf("Cannot decode response: %s", err)
 	}
 	var categoryIDs []int
-	for _, result := range data {
+	for _, result := range body.Data {
 		categoryIDs = append(categoryIDs, result.ID)
 	}
 	return categoryIDs
@@ -270,24 +293,35 @@ func doRequest(result *WorkerResult) {
 	locLog := log.WithField("url", uri)
 	resp, err := httpClient.Get(uri)
 	if err != nil {
-		locLog.Errorf("Cannot do request: %s", err)
-		result.ErrorResponses++
+		if netError, ok := err.(net.Error); ok && netError.Timeout() {
+			result.TimeoutResponses++
+		} else {
+			locLog.Errorf("Cannot do request: %s", err)
+			result.ErrorResponses++
+		}
 		return
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
+		b, _ := ioutil.ReadAll(resp.Body)
+		fmt.Println(string(b))
 		result.NonOKResponses++
 		return
 	}
 	_, err = ioutil.ReadAll(resp.Body)
 	if err != nil {
-		locLog.Errorf("Cannot read response body: %s", err)
-		result.ErrorResponses++
+		if netError, ok := err.(net.Error); ok && netError.Timeout() {
+			result.TimeoutResponses++
+		} else {
+			fmt.Println(reflect.TypeOf(err))
+			locLog.Errorf("Cannot read response body: %s", err)
+			result.ErrorResponses++
+		}
 		return
 	}
 	result.OKResponses++
 }
-func DisplayResults(results []WorkerResult) {
+func displayResults(results []WorkerResult) {
 	var totalOK, totalNonOK, totalTimeout, totalError int
 	for _, r := range results {
 		totalOK += r.OKResponses
@@ -296,7 +330,7 @@ func DisplayResults(results []WorkerResult) {
 		totalError += r.ErrorResponses
 	}
 	rps := totalOK / duration
-	fmt.Printf("OK: %d. NonOK: %d. Timeout: %d. Error: %d. RPS: %f\n", totalOK, totalNonOK, totalTimeout, totalError, rps)
+	log.WithFields(log.Fields{"OK": totalOK, "NonOK": totalNonOK, "Timeout": totalTimeout, "Error": totalError, "RPS": rps}).Info("END")
 }
 func main() {
 	var ssl bool
@@ -304,11 +338,11 @@ func main() {
 	flag.IntVar(&duration, "duration", 30, "duration of load test in seconds")
 	flag.IntVar(&users, "users", 10, "number of simultaneous users")
 	flag.IntVar(&delay, "delay", 100, "time between user request in milliseconds, 0 means no delay")
-	flag.IntVar(&host, "host", "localhost", "host")
-	flag.IntVar(&port, "port", 8001, "port")
+	flag.StringVar(&host, "host", "localhost", "host")
+	flag.IntVar(&port, "port", 8080, "port")
 	flag.IntVar(&timeout, "timeout", 1, "request timeout in seconds")
-	flag.Float64Var(&locationLat, "latitude", 55.725827, "x user coordinate")
-	flag.Float64Var(&locationLon, "longitude", 37.637190, "y user coordinate")
+	flag.Float64Var(&locationLat, "latitude", 55.654069, "x user coordinate")
+	flag.Float64Var(&locationLon, "longitude", 37.646245, "y user coordinate")
 	flag.IntVar(&limit, "limit", 10, "default pagination limit")
 	flag.IntVar(&cityID, "city", 1, "city id")
 	flag.BoolVar(&ssl, "ssl", false, "http or https")
@@ -318,16 +352,16 @@ func main() {
 	} else {
 		protocol = "https"
 	}
-	httpClient = &http.Client{Timeout: time.Second * time.Duration(duration)}
+	httpClient = &http.Client{Timeout: time.Second * time.Duration(timeout)}
+	log.Info("Start building requests...")
 	shopIDs := getShops()
 	mallIDs := getMalls()
 	categoryIDs := getCategories()
-	queries := []string{"тц", "т", "ат", "мо", "а", "б", "в", "с", "г", "д", "о", "е", "п", "м", "л", "н"}
 	mallsByShopReq := &MallsByShop{shopIDs: shopIDs}
-	mallsByQueryReq := &MallsByQuery{queries: queries}
+	mallsByQueryReq := &MallsByQuery{queries: []string{"тц", "т", "ат", "мо", "а", "б", "в", "с", "г", "д", "о", "е", "п", "м", "л", "н"}}
 	mallDetailsReq := &MallDetails{mallIDs: mallIDs}
 	shopsByMallReq := &ShopsByMall{mallIDs: mallIDs}
-	shopsByQueryReq := &ShopsByQuery{queries: queries}
+	shopsByQueryReq := &ShopsByQuery{queries: []string{"h", "крош", "ма", "спорт", "nik", "add"}}
 	shopsByCategoryReq := &ShopsByCategory{categoryIDs: categoryIDs}
 	shopDetailsReq := &ShopDetails{shopIDs: shopIDs}
 	currentMallReq := &CurrentMall{}
@@ -347,25 +381,26 @@ func main() {
 		searchReq,
 		searchReq,
 	}
-	wg := sync.WaitGroup{}
-	m := sync.Mutex{}
 	var worker func() WorkerResult
 	if delay != 0 {
 		worker = delayWorker
 	} else {
 		worker = noDelayWorker
 	}
+	wg := sync.WaitGroup{}
+	m := sync.Mutex{}
 	var results []WorkerResult
+	log.WithFields(log.Fields{"users": users, "duration": duration, "delay": delay}).Info("Start sending")
 	for i := 0; i < users; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			result := worker()
 			m.Lock()
-			defer m.Unlock()
 			results = append(results, result)
+			m.Unlock()
 		}()
 	}
 	wg.Wait()
-	DisplayResults(results)
+	displayResults(results)
 }

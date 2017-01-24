@@ -61,6 +61,11 @@ func main() {
 	//c := cors.New(cors.Options{AllowedOrigins: []string{"*"}})
 	//n.Use(c)
 	n.UseFunc(recoveryMiddleware)
+	if config.AccessLog() {
+		l := negroni.NewLogger()
+		l.ALogger = log.StandardLogger()
+		n.Use(l)
+	}
 	n.UseHandler(r)
 	if config.Debug() {
 		go func() {

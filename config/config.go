@@ -36,6 +36,10 @@ func Port() int {
 	conf := GetConfig()
 	return conf.Port
 }
+func AccessLog() bool {
+	conf := GetConfig()
+	return conf.AccessLog
+}
 
 type PostgresSettings struct {
 	Host     string `json:"host"`
@@ -52,10 +56,11 @@ type RedisSettings struct {
 	DB       int    `json:"db"`
 }
 type Config struct {
-	Debug    bool              `json:"debug"`
-	Port     int               `json:"port"`
-	Postgres *PostgresSettings `json:"postgres"`
-	Redis    *RedisSettings    `json:"redis"`
+	Debug     bool              `json:"debug"`
+	Port      int               `json:"port"`
+	AccessLog bool              `json:"access_log"`
+	Postgres  *PostgresSettings `json:"postgres"`
+	Redis     *RedisSettings    `json:"redis"`
 }
 
 func getConfigPath() string {
