@@ -12,7 +12,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/gazoon/httprouter"
-	//"github.com/rs/cors"
+	"github.com/rs/cors"
 	"github.com/urfave/negroni"
 )
 
@@ -58,8 +58,8 @@ func main() {
 	r.GET("/cities/", handlers.CitiesList)
 
 	n := negroni.New()
-	//c := cors.New(cors.Options{AllowedOrigins: []string{"*"}})
-	//n.Use(c)
+	c := cors.New(cors.Options{AllowedOrigins: []string{"*"}})
+	n.Use(c)
 	n.UseFunc(recoveryMiddleware)
 	if config.AccessLog() {
 		l := negroni.NewLogger()
