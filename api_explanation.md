@@ -273,6 +273,29 @@ results список объектов
     404, "MALL_NOT_FOUND"
 
 
+**Current city**
+----
+Пытается определить город пользователя по координатам.
+
+* **URL:**
+
+    /current_city/
+
+* **Query Params:**
+
+* **Required:**
+
+    location_lat [float] - x координата юзера
+
+    location_lon [float] - y координата юзера
+
+* **Error Responses:**
+
+    400, "INCORRECT_REQUEST_DATA"
+
+    404, "CITY_NOT_FOUND"
+
+
 **Shops In Malls**
 ----
 Устанавлиет какие из указанных магазинов есть в указанных тц.
