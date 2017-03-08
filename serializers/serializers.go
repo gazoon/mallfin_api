@@ -67,6 +67,9 @@ type CityBase struct {
 	ID   int    `json:"id"`
 	Name string `json:"name"`
 }
+type CityDetails struct {
+	*CityBase
+}
 type ShopsInMall struct {
 	MallID  int   `json:"mall"`
 	ShopIDs []int `json:"shops"`
@@ -189,6 +192,15 @@ func SerializeCategory(category *models.Category) *CategoryDetails {
 	}
 	serializer := &CategoryDetails{
 		CategoryBase: serializeCategoryBase(category),
+	}
+	return serializer
+}
+func SerializeCity(city *models.City) *CityDetails {
+	if city == nil {
+		return nil
+	}
+	serializer := &CityDetails{
+		CityBase: serializeCityBase(city),
 	}
 	return serializer
 }

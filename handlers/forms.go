@@ -123,12 +123,12 @@ func (clf *citiesListForm) Validate(req *http.Request, errs binding.Errors) bind
 	return checkSortKey(sortKeys, clf.Sort, errs)
 }
 
-type currentMallForm struct {
+type CoordinatesForm struct {
 	LocationLat float64
 	LocationLon float64
 }
 
-func (cmf *currentMallForm) FieldMap(req *http.Request) binding.FieldMap {
+func (cmf *CoordinatesForm) FieldMap(req *http.Request) binding.FieldMap {
 	return binding.FieldMap{
 		&cmf.LocationLat: binding.Field{
 			Form:     "location_lat",

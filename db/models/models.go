@@ -1312,6 +1312,29 @@ func GetCitiesByName(name string, sortKey *string) []*City {
 	`), name)
 	return cities
 }
+func GetCityByLocation(location *Location) *City {
+	if location == nil {
+		return nil
+	}
+	city := City{}
+	conn := db.GetConnection()
+	err := conn.QueryRow(`
+	SELECT
+	  c.id,
+	  c.name
+	FROM city c
+	WHERE st_dwithin(st_transform(c.location, 26986), st_transform(ST_Setsrid(st_point($1, $2), 4326), 26986), c.radius)
+	ORDER BY c.location <-> ST_SetSRID(ST_Point($1, $2), 4326)
+	LIMIT 1
+	`, location.Lon, location.Lat).Scan(&city.ID, &city.Name)
+	if err == sql.ErrNoRows {
+		return nil
+	} else if err != nil {
+		queryName := utils.CurrentFuncName()
+		moduleLog.WithField("query", queryName).Panicf("Cannot get category by ID: %s", err)
+	}
+	return &city
+}
 func citiesQuery(queryName, query string, args ...interface{}) []*City {
 	conn := db.GetConnection()
 	locLog := moduleLog.WithField("query", queryName)

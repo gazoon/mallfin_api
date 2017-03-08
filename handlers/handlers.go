@@ -201,8 +201,27 @@ func CitiesList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	serialized := serializers.SerializeCities(cities)
 	response(w, serialized)
 }
+func CurrentCity(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	formData := CoordinatesForm{}
+	errs := binding.Form(r, &formData)
+	if errs != nil {
+		errorResponse(w, INCORRECT_REQUEST_DATA, errs.Error(), http.StatusBadRequest)
+		return
+	}
+	userLocation := &models.Location{
+		Lat: formData.LocationLat,
+		Lon: formData.LocationLon,
+	}
+	city := models.GetCityByLocation(userLocation)
+	if city == nil {
+		errorResponse(w, CITY_NOT_FOUND, "In this place there is no city.", http.StatusNotFound)
+		return
+	}
+	serialized := serializers.SerializeCity(city)
+	response(w, serialized)
+}
 func CurrentMall(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	formData := currentMallForm{}
+	formData := CoordinatesForm{}
 	errs := binding.Form(r, &formData)
 	if errs != nil {
 		errorResponse(w, INCORRECT_REQUEST_DATA, errs.Error(), http.StatusBadRequest)

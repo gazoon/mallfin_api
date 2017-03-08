@@ -49,6 +49,7 @@ func main() {
 	r.GET("/malls/", handlers.MallsList)
 	r.GET("/malls/:id/", handlers.MallDetails)
 	r.GET("/current_mall/", handlers.CurrentMall)
+	r.GET("/current_city/", handlers.CurrentCity)
 	r.GET("/shops_in_malls/", handlers.ShopsInMalls)
 	r.GET("/search/", handlers.Search)
 	r.GET("/shops/", handlers.ShopsList)
