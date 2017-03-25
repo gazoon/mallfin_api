@@ -8,7 +8,9 @@
     "user": "gaz",
     "pool_size": 2,
     "password": "sudo",
-    "name": "mallfin"
+    "name": "mallfin",
+    "timeout": 1,
+    "retries": 3
   },
   "redis": {
     "host": "localhost",

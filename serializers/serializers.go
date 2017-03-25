@@ -2,7 +2,6 @@ package serializers
 
 import (
 	"mallfin_api/db/models"
-	"time"
 )
 
 type Location struct {
@@ -18,8 +17,8 @@ type SubwayStation struct {
 	Name string `json:"name"`
 }
 type WeekTime struct {
-	Time time.Time `json:"time"`
-	Day  int       `json:"day"`
+	Time string `json:"time"`
+	Day  int    `json:"day"`
 }
 type WorkPeriod struct {
 	Opening *WeekTime `json:"opening"`
@@ -90,8 +89,8 @@ func serializeMallBase(mall *models.Mall) *MallBase {
 		Name:  mall.Name,
 		Phone: mall.Phone,
 		Logo: &Logo{
-			Large: mall.LogoLarge,
-			Small: mall.LogoSmall,
+			Large: mall.Logo.Large,
+			Small: mall.Logo.Small,
 		},
 		Location: &Location{
 			Lat: mall.Location.Lat,
@@ -109,8 +108,8 @@ func serializeShopBase(shop *models.Shop) *ShopBase {
 		ID:   shop.ID,
 		Name: shop.Name,
 		Logo: &Logo{
-			Large: shop.LogoLarge,
-			Small: shop.LogoSmall,
+			Large: shop.Logo.Large,
+			Small: shop.Logo.Small,
 		},
 		Score:      shop.Score,
 		MallsCount: shop.MallsCount,
@@ -125,8 +124,8 @@ func serializeCategoryBase(category *models.Category) *CategoryBase {
 		ID:   category.ID,
 		Name: category.Name,
 		Logo: &Logo{
-			Large: category.LogoLarge,
-			Small: category.LogoSmall,
+			Large: category.Logo.Large,
+			Small: category.Logo.Small,
 		},
 		ShopsCount: category.ShopsCount,
 	}
@@ -151,18 +150,18 @@ func SerializeMall(mall *models.Mall) *MallDetails {
 		period := mall.WorkingHours[i]
 		workingHours[i] = &WorkPeriod{
 			Opening: &WeekTime{
-				Time: period.OpenTime,
-				Day:  period.OpenDay,
+				Time: period.Open.Time,
+				Day:  period.Open.Day,
 			},
 			Closing: &WeekTime{
-				Time: period.CloseTime,
-				Day:  period.CloseDay,
+				Time: period.Close.Time,
+				Day:  period.Close.Day,
 			},
 		}
 	}
 	var subwayStation *SubwayStation
-	if mall.SubwayID != nil && mall.SubwayName != nil {
-		subwayStation = &SubwayStation{ID: *mall.SubwayID, Name: *mall.SubwayName}
+	if mall.Subway != nil {
+		subwayStation = &SubwayStation{ID: mall.Subway.ID, Name: mall.Subway.Name}
 	}
 	serializer := &MallDetails{
 		MallBase:      serializeMallBase(mall),

@@ -36,9 +36,7 @@ func someTests() {
 func main() {
 	someTests()
 	mainLogger := log.WithField("location", "main")
-
 	config.Initialization()
-
 	redisdb.Initialization()
 	defer redisdb.Close()
 

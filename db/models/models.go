@@ -1,10 +1,7 @@
 package models
 
 import (
-	"database/sql"
 	"mallfin_api/db"
-
-	"time"
 
 	"fmt"
 	"strings"
@@ -12,7 +9,7 @@ import (
 	"mallfin_api/utils"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/gazoon/pq"
+	"github.com/go-pg/pg"
 )
 
 var moduleLog = log.WithField("location", "models")
@@ -25,6 +22,7 @@ type OrderBy struct {
 func (o *OrderBy) String() string {
 	return o.ToSql()
 }
+
 func (o *OrderBy) ToSql() string {
 	var s string
 	if o.Reverse {
@@ -35,8 +33,13 @@ func (o *OrderBy) ToSql() string {
 	return s
 
 }
-func (o *OrderBy) Compile(query string) string {
-	return fmt.Sprintf(query, o.ToSql())
+
+func (o *OrderBy) CompileQuery(query string) string {
+	return strings.Replace(query, "{order}", o.ToSql(), 1)
+}
+
+func (o *OrderBy) CompileBaseQuery(query string) baseQuery {
+	return baseQuery(o.CompileQuery(query))
 }
 
 type SortKeyToOrderBy struct {
@@ -128,6 +131,7 @@ func (sk *SortKeyToOrderBy) FmtKeys() string {
 	}
 	return strings.Join(keys, ", ")
 }
+
 func (sk *SortKeyToOrderBy) IsValid(sortKey *string) bool {
 	if sortKey != nil {
 		if _, ok := sk.dict[*sortKey]; !ok {
@@ -136,6 +140,7 @@ func (sk *SortKeyToOrderBy) IsValid(sortKey *string) bool {
 	}
 	return true
 }
+
 func (sk *SortKeyToOrderBy) CorrespondingOrderBy(sortKey *string) *OrderBy {
 	orderBy := sk.defaultOrderBy
 	if sortKey != nil {
@@ -146,38 +151,87 @@ func (sk *SortKeyToOrderBy) CorrespondingOrderBy(sortKey *string) *OrderBy {
 	return orderBy
 }
 
+type baseQuery string
+
+func (bq baseQuery) withColumns(columns string) string {
+	return strings.Replace(string(bq), "{columns}", columns, 1)
+}
+
+type WeekTime struct {
+	Time string `json:"time"`
+	Day  int    `json:"day"`
+}
 type WorkPeriod struct {
-	OpenTime  time.Time
-	OpenDay   int
-	CloseTime time.Time
-	CloseDay  int
+	Open  WeekTime `json:"opening"`
+	Close WeekTime `json:"closing"`
 }
 type Location struct {
 	Lat float64
 	Lon float64
 }
+type Logo struct {
+	Small string
+	Large string
+}
+type SubwayStation struct {
+	ID   int
+	Name string
+}
 type Mall struct {
 	ID         int
 	Name       string
 	Phone      string
-	LogoLarge  string
-	LogoSmall  string
+	Logo       Logo
 	Location   Location
 	ShopsCount int
 	Address    string
 	//Details
 	Site         string
 	DayAndNight  bool
-	SubwayID     *int
-	SubwayName   *string
+	Subway       *SubwayStation
 	WorkingHours []*WorkPeriod
+}
+type mallRow struct {
+	MallID          int
+	MallName        string
+	MallPhone       string
+	MallLogoLarge   string
+	MallLogoSmall   string
+	MallLocationLon float64
+	MallLocationLat float64
+	ShopsCount      int
+	Address         string
+	//Details
+	MallSite    string
+	DayAndNight bool
+	StationID   *int
+	StationName *string
+}
+
+func (mr *mallRow) toModel() *Mall {
+	var station *SubwayStation
+	if mr.StationID != nil && mr.StationName != nil {
+		station = &SubwayStation{ID: *mr.StationID, Name: *mr.StationName}
+	}
+	mall := &Mall{
+		ID:          mr.MallID,
+		Name:        mr.MallName,
+		Phone:       mr.MallPhone,
+		Logo:        Logo{Small: mr.MallLogoSmall, Large: mr.MallLogoLarge},
+		Location:    Location{Lon: mr.MallLocationLon, Lat: mr.MallLocationLat},
+		ShopsCount:  mr.ShopsCount,
+		Address:     mr.Address,
+		DayAndNight: mr.DayAndNight,
+		Site:        mr.MallSite,
+		Subway:      station,
+	}
+	return mall
 }
 
 type Shop struct {
 	ID         int
 	Name       string
-	LogoLarge  string
-	LogoSmall  string
+	Logo       Logo
 	Score      int
 	MallsCount int
 	//Details
@@ -186,11 +240,35 @@ type Shop struct {
 	NearestMall *Mall
 }
 
+type shopRow struct {
+	ShopID        int
+	ShopName      string
+	ShopLogoLarge string
+	ShopLogoSmall string
+	Score         int
+	MallsCount    int
+	//Details
+	ShopPhone string
+	ShopSite  string
+}
+
+func (sr *shopRow) toModel() *Shop {
+	shop := &Shop{
+		ID:         sr.ShopID,
+		Name:       sr.ShopName,
+		Logo:       Logo{Small: sr.ShopLogoSmall, Large: sr.ShopLogoLarge},
+		Score:      sr.Score,
+		MallsCount: sr.MallsCount,
+		Phone:      sr.ShopPhone,
+		Site:       sr.ShopSite,
+	}
+	return shop
+}
+
 type Category struct {
 	ID         int
 	Name       string
-	LogoLarge  string
-	LogoSmall  string
+	Logo       Logo
 	ShopsCount int
 }
 
@@ -207,13 +285,13 @@ type SearchResult struct {
 }
 
 func existsQuery(queryName, query string, args ...interface{}) bool {
-	var exists bool
-	conn := db.GetConnection()
-	err := conn.QueryRow(query, args...).Scan(&exists)
+	result := struct{ Exists bool }{}
+	client := db.GetClient()
+	_, err := client.QueryOne(&result, query, args...)
 	if err != nil {
 		moduleLog.WithField("query", queryName).Panicf("Cannot check the existence: %s", err)
 	}
-	return exists
+	return result.Exists
 }
 func IsShopExists(shopID int) bool {
 	queryName := utils.CurrentFuncName()
@@ -221,7 +299,7 @@ func IsShopExists(shopID int) bool {
 	SELECT exists(
 		SELECT *
 		FROM shop
-		WHERE id = $1)
+		WHERE shop_id = ?0)
 	`, shopID)
 	return exists
 }
@@ -231,7 +309,7 @@ func IsMallExists(mallID int) bool {
 	SELECT exists(
 		SELECT *
 		FROM mall
-		WHERE id = $1)
+		WHERE mall_id = ?0)
 	`, mallID)
 	return exists
 }
@@ -241,7 +319,7 @@ func IsCityExists(cityID int) bool {
 	SELECT exists(
 		SELECT *
 		FROM city
-		WHERE id = $1)
+		WHERE city_id = ?0)
 	`, cityID)
 	return exists
 }
@@ -251,7 +329,7 @@ func IsCategoryExists(categoryID int) bool {
 	SELECT exists(
 		SELECT *
 		FROM category
-		WHERE id = $1)
+		WHERE category_id = ?0)
 	`, categoryID)
 	return exists
 }
@@ -261,54 +339,35 @@ func IsSubwayStationExists(subwayStationID int) bool {
 	SELECT exists(
 		SELECT *
 		FROM subway_station
-		WHERE id = $1)
+		WHERE station_id = ?0)
 	`, subwayStationID)
 	return exists
 }
 
-//func DeleteAllMalls() {
-//	conn := db.GetConnection()
-//	_, err := conn.Exec(`TRUNCATE mall CASCADE`)
-//	if err != nil {
-//		moduleLog.Panicf("Cannot delete malls: %s", err)
-//	}
-//}
-
-//func CreateMall(mall *Mall) *Mall {
-//	conn := db.GetConnection()
-//	err := conn.QueryRow(`
-//	INSERT INTO mall (name, site, address, day_and_night, city_id, location)
-//	VALUES ($1, $2, $3, $4, $5, ST_SETSRID(ST_POINT($6, $7), 4326))
-//	RETURNING id`, mall.Name, mall.Site, mall.Address, mall.DayAndNight, mall.CityID, mall.Location.Lat, mall.Location.Lon).Scan(&mall.ID)
-//	if err != nil {
-//		moduleLog.WithField("mall", mall).Panicf("Cannot craete mall: %s", err)
-//	}
-//	return mall
-//
-//}
 func searchResultsQuery(queryName, query string, args ...interface{}) []*SearchResult {
-	conn := db.GetConnection()
+	client := db.GetClient()
 	locLog := moduleLog.WithField("query", queryName)
-	rows, err := conn.Query(query, args...)
+	var rows []*struct {
+		mallRow
+		Shops    []int `pg:",array"`
+		Distance *float64
+	}
+	_, err := client.Query(&rows, query, args...)
 	if err != nil {
 		locLog.Panicf("Cannot get search results rows: %s", err)
 	}
-	defer rows.Close()
-	var searchResults []*SearchResult
-	for rows.Next() {
-		sr := SearchResult{Mall: &Mall{}}
-		err = rows.Scan(&sr.Mall.ID, &sr.Mall.Name, &sr.Mall.Phone, &sr.Mall.LogoSmall, &sr.Mall.LogoLarge, &sr.Mall.Location.Lat, &sr.Mall.Location.Lon, &sr.Mall.ShopsCount, pq.Array(&sr.ShopIDs), &sr.Distance)
-		if err != nil {
-			locLog.Panicf("Error during scaning search result row: %s", err)
+	searchResults := make([]*SearchResult, len(rows))
+	for i, row := range rows {
+		sr := SearchResult{
+			Mall:     row.mallRow.toModel(),
+			ShopIDs:  row.Shops,
+			Distance: row.Distance,
 		}
-		searchResults = append(searchResults, &sr)
-	}
-	err = rows.Err()
-	if err != nil {
-		locLog.Panicf("Error after scaning search results rows: %s", err)
+		searchResults[i] = &sr
 	}
 	return searchResults
 }
+
 func totalCountFromResults(resultsLen int, limit, offset *int) (int, bool) {
 	if (limit == nil || *limit == 0) && (offset == nil || *offset == 0 || resultsLen != 0) {
 		totalCount := resultsLen
@@ -319,6 +378,7 @@ func totalCountFromResults(resultsLen int, limit, offset *int) (int, bool) {
 	}
 	return 0, false
 }
+
 func GetSearchResults(shopIDs []int, cityID *int, sortKey *string, limit, offset *int) ([]*SearchResult, int) {
 	if len(shopIDs) == 0 {
 		return nil, 0
@@ -326,66 +386,68 @@ func GetSearchResults(shopIDs []int, cityID *int, sortKey *string, limit, offset
 	var searchResults []*SearchResult
 	var totalCount int
 	orderBy := SEARCH_SORT_KEYS.CorrespondingOrderBy(sortKey)
-	shopIDsArray := pq.Array(shopIDs)
+	shopIDsArray := pg.Array(shopIDs)
 	queryName := utils.CurrentFuncName()
 	if cityID != nil {
-		searchResults = searchResultsQuery(queryName, orderBy.Compile(`
+		searchResults = searchResultsQuery(queryName, orderBy.CompileQuery(`
 		SELECT
-		  m.id,
-		  m.name,
-		  m.phone,
-		  m.logo_small,
-		  m.logo_large,
-		  ST_Y(m.location)      location_lat,
-		  ST_X(m.location)      location_lon,
+		  m.mall_id,
+		  m.mall_name,
+		  m.mall_phone,
+		  m.mall_logo_small,
+		  m.mall_logo_large,
+		  ST_Y(m.mall_location) mall_location_lat,
+		  ST_X(m.mall_location) mall_location_lon,
 		  m.shops_count,
+		  m.address,
 		  array_agg(ms.shop_id) shops,
 		  NULL                  distance
 		FROM mall m
-		  JOIN mall_shop ms ON m.id = ms.mall_id
-		WHERE ms.shop_id = ANY ($3) AND m.city_id = $4
-		GROUP BY m.id
-		ORDER BY count(ms.shop_id) DESC, %s
-		LIMIT $1
-		OFFSET $2
+		  JOIN mall_shop ms ON m.mall_id = ms.mall_id
+		WHERE ms.shop_id = ANY (?2) AND m.city_id = ?3
+		GROUP BY m.mall_id
+		ORDER BY count(ms.shop_id) DESC, {order}
+		LIMIT ?0
+		OFFSET ?1
 		`), limit, offset, shopIDsArray, *cityID)
 		var ok bool
 		if totalCount, ok = totalCountFromResults(len(searchResults), limit, offset); !ok {
 			totalCount = countQuery(queryName, `
-			SELECT count(DISTINCT m.id) total_count
+			SELECT count(DISTINCT m.mall_id)
 			FROM mall m
-			  JOIN mall_shop ms ON m.id = ms.mall_id
-			WHERE ms.shop_id = ANY ($1) AND m.city_id = $2
+			  JOIN mall_shop ms ON m.mall_id = ms.mall_id
+			WHERE ms.shop_id = ANY (?0) AND m.city_id = ?1
 			`, shopIDsArray, *cityID)
 		}
 	} else {
-		searchResults = searchResultsQuery(queryName, orderBy.Compile(`
+		searchResults = searchResultsQuery(queryName, orderBy.CompileQuery(`
 		SELECT
-		  m.id,
-		  m.name,
-		  m.phone,
-		  m.logo_small,
-		  m.logo_large,
-		  ST_Y(m.location)      location_lat,
-		  ST_X(m.location)      location_lon,
+		  m.mall_id,
+		  m.mall_name,
+		  m.mall_phone,
+		  m.mall_logo_small,
+		  m.mall_logo_large,
+		  ST_Y(m.mall_location) mall_location_lat,
+		  ST_X(m.mall_location) mall_location_lon,
 		  m.shops_count,
+		  m.address,
 		  array_agg(ms.shop_id) shops,
 		  NULL                  distance
 		FROM mall m
-		  JOIN mall_shop ms ON m.id = ms.mall_id
-		WHERE ms.shop_id = ANY ($3)
-		GROUP BY m.id
-		ORDER BY count(ms.shop_id) DESC, %s
-		LIMIT $1
-		OFFSET $2
+		  JOIN mall_shop ms ON m.mall_id = ms.mall_id
+		WHERE ms.shop_id = ANY (?2)
+		GROUP BY m.mall_id
+		ORDER BY count(ms.shop_id) DESC, {order}
+		LIMIT ?0
+		OFFSET ?1
 		`), limit, offset, shopIDsArray)
 		var ok bool
 		if totalCount, ok = totalCountFromResults(len(searchResults), limit, offset); !ok {
 			totalCount = countQuery(queryName, `
-			SELECT count(DISTINCT m.id) total_count
+			SELECT count(DISTINCT m.mall_id)
 			FROM mall m
-			  JOIN mall_shop ms ON m.id = ms.mall_id
-			WHERE ms.shop_id = ANY ($1)
+			  JOIN mall_shop ms ON m.mall_id = ms.mall_id
+			WHERE ms.shop_id = ANY (?0)
 			`, shopIDsArray)
 		}
 	}
@@ -398,72 +460,74 @@ func GetSearchResultsWithDistance(shopIDs []int, location *Location, cityID *int
 	var searchResults []*SearchResult
 	var totalCount int
 	orderBy := SEARCH_WITH_DISTANCE_SORT_KEYS.CorrespondingOrderBy(sortKey)
-	shopIDsArray := pq.Array(shopIDs)
+	shopIDsArray := pg.Array(shopIDs)
 	queryName := utils.CurrentFuncName()
 	if cityID != nil {
-		searchResults = searchResultsQuery(queryName, orderBy.Compile(`
+		searchResults = searchResultsQuery(queryName, orderBy.CompileQuery(`
 		SELECT
-		  m.id,
-		  m.name,
-		  m.phone,
-		  m.logo_small,
-		  m.logo_large,
-		  ST_Y(m.location)      location_lat,
-		  ST_X(m.location)      location_lon,
+		  m.mall_id,
+		  m.mall_name,
+		  m.mall_phone,
+		  m.mall_logo_small,
+		  m.mall_logo_large,
+		  ST_Y(m.mall_location) mall_location_lat,
+		  ST_X(m.mall_location) mall_location_lon,
 		  m.shops_count,
+		  m.address,
 		  array_agg(ms.shop_id) shops,
 		  st_distance(
-			  st_transform(m.location, 26986),
-			  st_transform(st_setsrid(st_point($4, $5), 4326), 26986)
+			  st_transform(m.mall_location, 26986),
+			  st_transform(st_setsrid(st_point(?3, ?4), 4326), 26986)
 		  )                     distance
 		FROM mall m
-		  JOIN mall_shop ms ON m.id = ms.mall_id
-		WHERE ms.shop_id = ANY ($3) AND m.city_id = $6
-		GROUP BY m.id
-		ORDER BY count(ms.shop_id) DESC, %s
-		LIMIT $1
-		OFFSET $2
+		  JOIN mall_shop ms ON m.mall_id = ms.mall_id
+		WHERE ms.shop_id = ANY(?2) AND m.city_id = ?5
+		GROUP BY m.mall_id
+		ORDER BY count(ms.shop_id) DESC, {order}
+		LIMIT ?0
+		OFFSET ?1
 		`), limit, offset, shopIDsArray, location.Lon, location.Lat, *cityID)
 		var ok bool
 		if totalCount, ok = totalCountFromResults(len(searchResults), limit, offset); !ok {
 			totalCount = countQuery(queryName, `
-			SELECT count(DISTINCT m.id) total_count
+			SELECT count(DISTINCT m.mall_id)
 			FROM mall m
-			  JOIN mall_shop ms ON m.id = ms.mall_id
-			WHERE ms.shop_id = ANY ($1) AND m.city_id = $2
+			  JOIN mall_shop ms ON m.mall_id = ms.mall_id
+			WHERE ms.shop_id = ANY (?0) AND m.city_id = ?1
 			`, shopIDsArray, *cityID)
 		}
 	} else {
-		searchResults = searchResultsQuery(queryName, orderBy.Compile(`
+		searchResults = searchResultsQuery(queryName, orderBy.CompileQuery(`
 		SELECT
-		  m.id,
-		  m.name,
-		  m.phone,
-		  m.logo_small,
-		  m.logo_large,
-		  ST_Y(m.location)      location_lat,
-		  ST_X(m.location)      location_lon,
+		  m.mall_id,
+		  m.mall_name,
+		  m.mall_phone,
+		  m.mall_logo_small,
+		  m.mall_logo_large,
+		  ST_Y(m.mall_location) mall_location_lat,
+		  ST_X(m.mall_location) mall_location_lon,
 		  m.shops_count,
+		  m.address,
 		  array_agg(ms.shop_id) shops,
 		  st_distance(
-			  st_transform(m.location, 26986),
-			  st_transform(st_setsrid(st_point($4, $5), 4326), 26986)
+			  st_transform(m.mall_location, 26986),
+			  st_transform(st_setsrid(st_point(?3, ?4), 4326), 26986)
 		  )                     distance
 		FROM mall m
-		  JOIN mall_shop ms ON m.id = ms.mall_id
-		WHERE ms.shop_id = ANY ($3)
-		GROUP BY m.id
-		ORDER BY count(ms.shop_id) DESC, %s
-		LIMIT $1
-		OFFSET $2
+		  JOIN mall_shop ms ON m.mall_id = ms.mall_id
+		WHERE ms.shop_id = ANY (?2)
+		GROUP BY m.mall_id
+		ORDER BY count(ms.shop_id) DESC, {order}
+		LIMIT ?0
+		OFFSET ?1
 		`), limit, offset, shopIDsArray, location.Lon, location.Lat)
 		var ok bool
 		if totalCount, ok = totalCountFromResults(len(searchResults), limit, offset); !ok {
 			totalCount = countQuery(queryName, `
-			SELECT count(DISTINCT m.id) total_count
+			SELECT count(DISTINCT m.mall_id)
 			FROM mall m
-			  JOIN mall_shop ms ON m.id = ms.mall_id
-			WHERE ms.shop_id = ANY ($1)
+			  JOIN mall_shop ms ON m.mall_id = ms.mall_id
+			WHERE ms.shop_id = ANY (?0)
 			`, shopIDsArray)
 		}
 	}
@@ -479,100 +543,96 @@ func GetShopsInMalls(mallIDs, shopIDs []int) ShopsInMalls {
 	}
 	queryName := utils.CurrentFuncName()
 	locLog := moduleLog.WithField("query", queryName)
-	conn := db.GetConnection()
-	rows, err := conn.Query(`
+	client := db.GetClient()
+	var rows []*struct {
+		MallID int
+		ShopID int
+	}
+	_, err := client.Query(&rows, `
 	SELECT
 	  mall_id,
 	  shop_id
 	FROM mall_shop
-	WHERE mall_id = ANY ($1) AND shop_id = ANY ($2)
-	`, pq.Array(mallIDs), pq.Array(shopIDs))
-	if err != nil && err != sql.ErrNoRows {
+	WHERE mall_id = ANY (?0) AND shop_id = ANY (?1)
+	`, pg.Array(mallIDs), pg.Array(shopIDs))
+	if err != nil && err != pg.ErrNoRows {
 		locLog.Panicf("Cannot get shops in malls occurrence: %s", err)
 	}
-	defer rows.Close()
-	for rows.Next() {
-		var mallID, shopID int
-		err = rows.Scan(&mallID, &shopID)
-		if err != nil {
-			locLog.Panicf("Error during scaning shop in mall row: %s", err)
-		}
-		mallsShops[mallID] = append(mallsShops[mallID], shopID)
-	}
-	err = rows.Err()
-	if err != nil {
-		locLog.Panicf("Error after scaning shops in malls: %s", err)
+	for _, row := range rows {
+		mallsShops[row.MallID] = append(mallsShops[row.MallID], row.ShopID)
 	}
 	return mallsShops
 }
 func GetMallWorkingHours(mallID int) []*WorkPeriod {
 	queryName := utils.CurrentFuncName()
 	locLog := moduleLog.WithFields(log.Fields{"mall": mallID, "query": queryName})
-	conn := db.GetConnection()
-	rows, err := conn.Query(`
-		SELECT
-		  opening_day,
-		  opening_time,
-		  closing_day,
-		  closing_time
-		FROM mall_working_hours
-		WHERE mall_id = $1
-		`, mallID)
-	if err != nil && err != sql.ErrNoRows {
+	client := db.GetClient()
+	var rows []*struct {
+		OpenDay   int
+		OpenTime  string
+		CloseDay  int
+		CloseTime string
+	}
+	_, err := client.Query(&rows, `
+	SELECT
+	  open_day,
+	  open_time,
+	  close_day,
+	  close_time
+	FROM mall_working_hours
+	WHERE mall_id = ?0
+	`, mallID)
+	if err != nil && err != pg.ErrNoRows {
 		locLog.Panicf("Cannot get mall working hours: %s", err)
 	}
-	defer rows.Close()
-	var workingHours []*WorkPeriod
-	for rows.Next() {
-		period := WorkPeriod{}
-		err = rows.Scan(&period.OpenDay, &period.OpenTime, &period.CloseDay, &period.CloseTime)
-		if err != nil {
-			locLog.Panicf("Error during scaning working hours: %s", err)
+	workingHours := make([]*WorkPeriod, len(rows))
+	for i, row := range rows {
+		workingHours[i] = &WorkPeriod{
+			Open:  WeekTime{Day: row.OpenDay, Time: row.OpenTime},
+			Close: WeekTime{Day: row.CloseDay, Time: row.CloseTime},
 		}
-		workingHours = append(workingHours, &period)
-	}
-	err = rows.Err()
-	if err != nil {
-		locLog.Panicf("Error after scaning working hours: %s", err)
 	}
 	return workingHours
 }
-func mallQuery(queryName, query string, args ...interface{}) *Mall {
-	conn := db.GetConnection()
-	mall := Mall{}
-	err := conn.QueryRow(query, args...).Scan(&mall.ID, &mall.Name, &mall.Phone, &mall.LogoSmall, &mall.LogoLarge, &mall.Location.Lat, &mall.Location.Lon, &mall.ShopsCount,
-		&mall.Address, &mall.Site, &mall.DayAndNight, &mall.SubwayID, &mall.SubwayName)
-	if err == sql.ErrNoRows {
+func mallQuery(queryName string, queryBasis baseQuery, args ...interface{}) *Mall {
+	client := db.GetClient()
+	var row mallRow
+	query := queryBasis.withColumns(`
+	  m.mall_id,
+	  m.mall_name,
+	  m.mall_phone,
+	  m.mall_logo_small,
+	  m.mall_logo_large,
+	  ST_Y(m.mall_location) mall_location_lat,
+	  ST_X(m.mall_location) mall_location_lon,
+	  m.shops_count,
+	  m.address,
+	  m.mall_site,
+	  m.day_and_night,
+	  ss.station_id,
+	  ss.station_name
+	`)
+	_, err := client.QueryOne(&row, query, args...)
+	if err == pg.ErrNoRows {
 		return nil
 	} else if err != nil {
 		moduleLog.WithField("query", queryName).Panicf("Cannot get mall: %s", err)
 	}
-	if !mall.DayAndNight {
+	mall := row.toModel()
+	if !row.DayAndNight {
 		mall.WorkingHours = GetMallWorkingHours(mall.ID)
 	}
-	return &mall
+	return mall
 }
 func GetMallDetails(mallID int) *Mall {
 	queryName := utils.CurrentFuncName()
-	mall := mallQuery(queryName, `
-	SELECT
-	  m.id,
-	  m.name,
-	  m.phone,
-	  m.logo_small,
-	  m.logo_large,
-	  ST_Y(m.location) location_lat,
-	  ST_X(m.location) location_lon,
-	  m.shops_count,
-	  m.address,
-	  m.site,
-	  m.day_and_night,
-	  m.subway_station_id,
-	  ss.name          subway_station_name
+	mall := mallQuery(queryName, baseQuery(`
+	SELECT {columns}
 	FROM mall m
-	  LEFT JOIN subway_station ss ON m.subway_station_id = ss.id
-	WHERE m.id = $1
-	`, mallID)
+	  LEFT JOIN subway_station ss ON m.subway_station_id = ss.station_id
+	WHERE m.mall_id = ?0
+	LIMIT 1
+	`), mallID)
 	return mall
 }
 func GetMallByLocation(location *Location) *Mall {
@@ -580,37 +640,26 @@ func GetMallByLocation(location *Location) *Mall {
 		return nil
 	}
 	queryName := utils.CurrentFuncName()
-	mall := mallQuery(queryName, `
-	SELECT
-	  m.id,
-	  m.name,
-	  m.phone,
-	  m.logo_small,
-	  m.logo_large,
-	  ST_Y(m.location) location_lat,
-	  ST_X(m.location) location_lon,
-	  m.shops_count,
-	  m.address,
-	  m.site,
-	  m.day_and_night,
-	  m.subway_station_id,
-	  ss.name          subway_station_name
+	mall := mallQuery(queryName, baseQuery(`
+	SELECT {columns}
 	FROM mall m
-	  LEFT JOIN subway_station ss ON m.subway_station_id = ss.id
-	WHERE st_dwithin(st_transform(m.location, 26986), st_transform(ST_Setsrid(st_point($1, $2), 4326), 26986), m.radius)
-	ORDER BY m.location <-> ST_SetSRID(ST_Point($1, $2), 4326)
+	  LEFT JOIN subway_station ss ON m.subway_station_id = ss.station_id
+	WHERE st_dwithin(st_transform(m.mall_location, 26986), st_transform(ST_Setsrid(st_point(?0, ?1), 4326), 26986), m.mall_radius)
+	ORDER BY m.mall_location <-> ST_SetSRID(ST_Point(?0, ?1), 4326)
 	LIMIT 1
-	`, location.Lon, location.Lat)
+	`), location.Lon, location.Lat)
 	return mall
 }
 func countQuery(queryName, query string, args ...interface{}) int {
-	var count int
-	conn := db.GetConnection()
-	err := conn.QueryRow(query, args...).Scan(&count)
+	var row struct {
+		Count int
+	}
+	client := db.GetClient()
+	_, err := client.QueryOne(&row, query, args...)
 	if err != nil {
 		moduleLog.WithField("query", queryName).Panicf("Cannot do count query: %s", err)
 	}
-	return count
+	return row.Count
 }
 func GetMalls(cityID *int, sortKey *string, limit, offset *int) ([]*Mall, int) {
 	var malls []*Mall
@@ -618,52 +667,34 @@ func GetMalls(cityID *int, sortKey *string, limit, offset *int) ([]*Mall, int) {
 	orderBy := MALLS_SORT_KEYS.CorrespondingOrderBy(sortKey)
 	queryName := utils.CurrentFuncName()
 	if cityID != nil {
-		malls = mallsQuery(queryName, orderBy.Compile(`
-		SELECT
-		  m.id,
-		  m.name,
-		  m.phone,
-		  m.logo_small,
-		  m.logo_large,
-		  ST_Y(m.location)  location_lat,
-		  ST_X(m.location)  location_lon,
-		  m.shops_count
+		malls = mallsQuery(queryName, orderBy.CompileBaseQuery(`
+		SELECT {columns}
 		FROM mall m
-		WHERE m.city_id = $3
-		ORDER BY %s
-		LIMIT $1
-		OFFSET $2
+		WHERE m.city_id = ?2
+		ORDER BY {order}
+		LIMIT ?0
+		OFFSET ?1
 		`), limit, offset, *cityID)
 		var ok bool
 		if totalCount, ok = totalCountFromResults(len(malls), limit, offset); !ok {
 			totalCount = countQuery(queryName, `
-			SELECT
-			  count(*) total_count
+			SELECT count(*)
 			FROM mall m
-			WHERE m.city_id = $1
+			WHERE m.city_id = ?0
 			`, *cityID)
 		}
 	} else {
-		malls = mallsQuery(queryName, orderBy.Compile(`
-		SELECT
-		  m.id,
-		  m.name,
-		  m.phone,
-		  m.logo_small,
-		  m.logo_large,
-		  ST_Y(m.location)  location_lat,
-		  ST_X(m.location)  location_lon,
-		  m.shops_count
+		malls = mallsQuery(queryName, orderBy.CompileBaseQuery(`
+		SELECT {columns}
 		FROM mall m
-		ORDER BY %s
-		LIMIT $1
-		OFFSET $2
+		ORDER BY {order}
+		LIMIT ?0
+		OFFSET ?1
 		`), limit, offset)
 		var ok bool
 		if totalCount, ok = totalCountFromResults(len(malls), limit, offset); !ok {
 			totalCount = countQuery(queryName, `
-			SELECT
-			  count(*) total_count
+			SELECT count(*)
 			FROM mall m
 			`)
 		}
@@ -674,52 +705,35 @@ func GetMallsByIDs(mallIDs []int) ([]*Mall, int) {
 	if len(mallIDs) == 0 {
 		return nil, 0
 	}
-	mallIDsArray := pq.Array(mallIDs)
+	mallIDsArray := pg.Array(mallIDs)
 	queryName := utils.CurrentFuncName()
-	malls := mallsQuery(queryName, `
-	SELECT
-	  m.id,
-	  m.name,
-	  m.phone,
-	  m.logo_small,
-	  m.logo_large,
-	  ST_Y(m.location)  location_lat,
-	  ST_X(m.location)  location_lon,
-	  m.shops_count
+	malls := mallsQuery(queryName, baseQuery(`
+	SELECT {columns}
 	FROM mall m
-	WHERE m.id = ANY($1)
-	`, mallIDsArray)
+	WHERE m.mall_id = ANY(?0)
+	`), mallIDsArray)
 	totalCount := len(malls)
 	return malls, totalCount
 }
 func GetMallsBySubwayStation(subwayStationID int, sortKey *string, limit, offset *int) ([]*Mall, int) {
 	orderBy := MALLS_SORT_KEYS.CorrespondingOrderBy(sortKey)
 	queryName := utils.CurrentFuncName()
-	malls := mallsQuery(queryName, orderBy.Compile(`
-	SELECT
-	  m.id,
-	  m.name,
-	  m.phone,
-	  m.logo_small,
-	  m.logo_large,
-	  ST_Y(m.location)  location_lat,
-	  ST_X(m.location)  location_lon,
-	  m.shops_count
+	malls := mallsQuery(queryName, orderBy.CompileBaseQuery(`
+	SELECT {columns}
 	FROM mall m
-	  LEFT JOIN subway_station ss ON m.subway_station_id = ss.id
-	WHERE ss.id = $3
-	ORDER BY %s
-	LIMIT $1
-	OFFSET $2
+	  LEFT JOIN subway_station ss ON m.subway_station_id = ss.station_id
+	WHERE ss.station_id = ?2
+	ORDER BY {order}
+	LIMIT ?0
+	OFFSET ?1
 	`), limit, offset, subwayStationID)
 	totalCount, ok := totalCountFromResults(len(malls), limit, offset)
 	if !ok {
 		totalCount = countQuery(queryName, `
-		SELECT
-		  count(*) total_count
+		SELECT count(*)
 		FROM mall m
-		  LEFT JOIN subway_station ss ON m.subway_station_id = ss.id
-		WHERE ss.id = $1
+		  LEFT JOIN subway_station ss ON m.subway_station_id = ss.station_id
+		WHERE ss.id = ?0
 		`, subwayStationID)
 	}
 	return malls, totalCount
@@ -730,59 +744,41 @@ func GetMallsByShop(shopID int, cityID *int, sortKey *string, limit, offset *int
 	orderBy := MALLS_SORT_KEYS.CorrespondingOrderBy(sortKey)
 	queryName := utils.CurrentFuncName()
 	if cityID != nil {
-		malls = mallsQuery(queryName, orderBy.Compile(`
-		SELECT
-		  m.id,
-		  m.name,
-		  m.phone,
-		  m.logo_small,
-		  m.logo_large,
-		  ST_Y(m.location) location_lat,
-		  ST_X(m.location) location_lon,
-		  m.shops_count
+		malls = mallsQuery(queryName, orderBy.CompileBaseQuery(`
+		SELECT {columns}
 		FROM mall m
-		  JOIN mall_shop ms ON m.id = ms.mall_id
-		WHERE ms.shop_id = $3 AND m.city_id = $4
-		ORDER BY %s
-		LIMIT $1
-		OFFSET $2
+		  JOIN mall_shop ms ON m.mall_id = ms.mall_id
+		WHERE ms.shop_id = ?2 AND m.city_id = ?3
+		ORDER BY {order}
+		LIMIT ?0
+		OFFSET ?1
 		`), limit, offset, shopID, *cityID)
 		var ok bool
 		if totalCount, ok = totalCountFromResults(len(malls), limit, offset); !ok {
 			totalCount = countQuery(queryName, `
-			SELECT
-			  count(*) total_count
+			SELECT count(*)
 			FROM mall m
-			  JOIN mall_shop ms ON m.id = ms.mall_id
-			WHERE ms.shop_id = $1 AND m.city_id = $2
+			  JOIN mall_shop ms ON m.mall_id = ms.mall_id
+			WHERE ms.shop_id = ?0 AND m.city_id = ?1
 			`, shopID, *cityID)
 		}
 	} else {
-		malls = mallsQuery(queryName, orderBy.Compile(`
-		SELECT
-		  m.id,
-		  m.name,
-		  m.phone,
-		  m.logo_small,
-		  m.logo_large,
-		  ST_Y(m.location) location_lat,
-		  ST_X(m.location) location_lon,
-		  m.shops_count
+		malls = mallsQuery(queryName, orderBy.CompileBaseQuery(`
+		SELECT {columns}
 		FROM mall m
-		  JOIN mall_shop ms ON m.id = ms.mall_id
-		WHERE ms.shop_id = $3
-		ORDER BY %s
-		LIMIT $1
-		OFFSET $2
+		  JOIN mall_shop ms ON m.mall_id = ms.mall_id
+		WHERE ms.shop_id = ?2
+		ORDER BY {order}
+		LIMIT ?0
+		OFFSET ?1
 		`), limit, offset, shopID)
 		var ok bool
 		if totalCount, ok = totalCountFromResults(len(malls), limit, offset); !ok {
 			totalCount = countQuery(queryName, `
-			SELECT
-			  count(*) total_count
+			SELECT count(*)
 			FROM mall m
-			  JOIN mall_shop ms ON m.id = ms.mall_id
-			WHERE ms.shop_id = $1
+			  JOIN mall_shop ms ON m.mall_id = ms.mall_id
+			WHERE ms.shop_id = ?0
 			`, shopID)
 		}
 	}
@@ -794,148 +790,137 @@ func GetMallsByName(name string, cityID *int, sortKey *string, limit, offset *in
 	orderBy := MALLS_SORT_KEYS.CorrespondingOrderBy(sortKey)
 	queryName := utils.CurrentFuncName()
 	if cityID != nil {
-		malls = mallsQuery(queryName, orderBy.Compile(`
-		SELECT
-		  m.id,
-		  m.name,
-		  m.phone,
-		  m.logo_small,
-		  m.logo_large,
-		  ST_Y(m.location) location_lat,
-		  ST_X(m.location) location_lon,
-		  m.shops_count
+		malls = mallsQuery(queryName, orderBy.CompileBaseQuery(`
+		SELECT {columns}
 		FROM mall m
 		  JOIN (SELECT DISTINCT ON (mall_id) mall_id
 				FROM mall_name
-				WHERE name ILIKE '%%' || $3 || '%%') mn ON m.id = mn.mall_id
-		WHERE m.city_id = $4
-		ORDER BY %s
-		LIMIT $1
-		OFFSET $2
+				WHERE mall_name ILIKE '%%' || ?2 || '%%') mn ON m.mall_id = mn.mall_id
+		WHERE m.city_id = ?3
+		ORDER BY {order}
+		LIMIT ?0
+		OFFSET ?1
 		`), limit, offset, name, *cityID)
 		var ok bool
 		if totalCount, ok = totalCountFromResults(len(malls), limit, offset); !ok {
 			totalCount = countQuery(queryName, `
-			SELECT
-			  count(*) total_count
+			SELECT count(*)
 			FROM mall m
 			  JOIN (SELECT DISTINCT ON (mall_id) mall_id
 					FROM mall_name
-					WHERE name ILIKE '%' || $1 || '%') mn ON m.id = mn.mall_id
-			WHERE m.city_id = $2
+					WHERE name ILIKE '%' || ?0 || '%') mn ON m.mall_id = mn.mall_id
+			WHERE m.city_id = ?1
 			`, name, *cityID)
 		}
 	} else {
-		malls = mallsQuery(queryName, orderBy.Compile(`
-		SELECT
-		  m.id,
-		  m.name,
-		  m.phone,
-		  m.logo_small,
-		  m.logo_large,
-		  ST_Y(m.location) location_lat,
-		  ST_X(m.location) location_lon,
-		  m.shops_count
+		malls = mallsQuery(queryName, orderBy.CompileBaseQuery(`
+		SELECT {columns}
 		FROM mall m
 		  JOIN (SELECT DISTINCT ON (mall_id) mall_id
 				FROM mall_name
-				WHERE name ILIKE '%%' || $3 || '%%') mn ON m.id = mn.mall_id
-		ORDER BY %s
-		LIMIT $1
-		OFFSET $2
+				WHERE name ILIKE '%%' || ?2 || '%%') mn ON m.mall_id = mn.mall_id
+		ORDER BY {order}
+		LIMIT ?0
+		OFFSET ?1
 		`), limit, offset, name)
 		var ok bool
 		if totalCount, ok = totalCountFromResults(len(malls), limit, offset); !ok {
 			totalCount = countQuery(queryName, `
-			SELECT
-			  count(*) total_count
+			SELECT count(*)
 			FROM mall m
 			  JOIN (SELECT DISTINCT ON (mall_id) mall_id
 					FROM mall_name
-					WHERE name ILIKE '%' || $1 || '%') mn ON m.id = mn.mall_id
+					WHERE name ILIKE '%' || ?0 || '%') mn ON m.mall_id = mn.mall_id
 			`, name)
 		}
 	}
 	return malls, totalCount
 }
-func mallsQuery(queryName, query string, args ...interface{}) []*Mall {
-	conn := db.GetConnection()
+func mallsQuery(queryName string, queryBasis baseQuery, args ...interface{}) []*Mall {
+	client := db.GetClient()
 	locLog := moduleLog.WithField("query", queryName)
-	rows, err := conn.Query(query, args...)
+	var rows []*mallRow
+	query := queryBasis.withColumns(`
+	  m.mall_id,
+	  m.mall_name,
+	  m.mall_phone,
+	  m.mall_logo_small,
+	  m.mall_logo_large,
+	  ST_Y(m.mall_location) mall_location_lat,
+	  ST_X(m.mall_location) mall_location_lon,
+	  m.shops_count
+	`)
+	_, err := client.Query(&rows, query, args...)
 	if err != nil {
 		locLog.Panicf("Cannot get malls rows: %s", err)
 	}
-	defer rows.Close()
-	var malls []*Mall
-	for rows.Next() {
-		m := Mall{}
-		err = rows.Scan(&m.ID, &m.Name, &m.Phone, &m.LogoSmall, &m.LogoLarge, &m.Location.Lat, &m.Location.Lon, &m.ShopsCount)
-		if err != nil {
-			locLog.Panicf("Error during scaning mall row: %s", err)
-		}
-		malls = append(malls, &m)
-	}
-	err = rows.Err()
-	if err != nil {
-		locLog.Panicf("Error after scaning malls rows: %s", err)
+	malls := make([]*Mall, len(rows))
+	for i, row := range rows {
+		malls[i] = row.toModel()
 	}
 	return malls
 }
 func GetShopDetails(shopID int, location *Location, cityID *int) *Shop {
-	shop := Shop{}
-	conn := db.GetConnection()
+	client := db.GetClient()
 	queryName := utils.CurrentFuncName()
 	var err error
+	var shop *Shop
 	if location == nil {
-		err = conn.QueryRow(`
+		var row shopRow
+		_, err = client.QueryOne(&row, `
 		SELECT
-		  s.id,
-		  s.name,
-		  s.logo_small,
-		  s.logo_large,
+		  s.shop_id,
+		  s.shop_name,
+		  s.shop_logo_small,
+		  s.shop_logo_large,
 		  s.score,
 		  s.malls_count,
-		  s.phone,
-		  s.site
+		  s.shop_phone,
+		  s.shop_site
 		FROM shop s
-		WHERE s.id = $1
-		`, shopID).Scan(&shop.ID, &shop.Name, &shop.LogoSmall, &shop.LogoLarge, &shop.Score, &shop.MallsCount, &shop.Phone, &shop.Site)
-	} else {
-		shop.NearestMall = &Mall{}
-		err = conn.QueryRow(`
-		SELECT
-		  s.id,
-		  s.name,
-		  s.logo_small,
-		  s.logo_large,
-		  s.score,
-		  s.malls_count,
-		  s.phone,
-		  s.site,
-		  m.id             mall_id,
-		  m.name           mall_name,
-		  m.phone          mall_phone,
-		  m.logo_small     mall_logo_small,
-		  m.logo_large     mall_logo_large,
-		  ST_Y(m.location) mall_location_lat,
-		  ST_X(m.location) mall_location_lon,
-		  m.shops_count    mall_shops
-		FROM shop s
-		  JOIN mall_shop ms ON s.id = ms.shop_id
-		  JOIN mall m ON ms.mall_id = m.id
-		WHERE s.id = $1
-		ORDER BY m.location <-> ST_SetSRID(ST_Point($2, $3), 4326)
+		WHERE s.shop_id = ?0
 		LIMIT 1
-		`, shopID, location.Lon, location.Lat).Scan(&shop.ID, &shop.Name, &shop.LogoSmall, &shop.LogoLarge, &shop.Score, &shop.MallsCount,
-			&shop.Phone, &shop.Site, &shop.NearestMall.ID, &shop.NearestMall.Name, &shop.NearestMall.Phone, &shop.NearestMall.LogoSmall,
-			&shop.NearestMall.LogoLarge, &shop.NearestMall.Location.Lat, &shop.NearestMall.Location.Lon, &shop.NearestMall.ShopsCount)
+		`, shopID)
+		shop = row.toModel()
+	} else {
+		var row struct {
+			shopRow
+			mallRow
+		}
+		_, err = client.QueryOne(&row, `
+		SELECT
+		  s.shop_id,
+		  s.shop_name,
+		  s.shop_logo_small,
+		  s.shop_logo_large,
+		  s.score,
+		  s.malls_count,
+		  s.shop_phone,
+		  s.shop_site,
+		  m.mall_id,
+		  m.mall_name,
+		  m.mall_phone,
+		  m.mall_logo_small,
+		  m.mall_logo_large,
+		  ST_Y(m.mall_location) mall_location_lat,
+		  ST_X(m.mall_location) mall_location_lon,
+		  m.shops_count
+		FROM shop s
+		  JOIN mall_shop ms ON s.shop_id = ms.shop_id
+		  JOIN mall m ON ms.mall_id = m.mall_id
+		WHERE s.shop_id = ?0
+		ORDER BY m.mall_location <-> ST_SetSRID(ST_Point(?1, ?2), 4326)
+		LIMIT 1
+		`, shopID, location.Lon, location.Lat)
+		shop = row.shopRow.toModel()
+		shop.NearestMall = row.mallRow.toModel()
 	}
-	if err == sql.ErrNoRows {
+	if err == pg.ErrNoRows {
 		return nil
 	} else if err != nil {
 		moduleLog.WithFields(log.Fields{"shop": shopID, "query": queryName}).Panicf("Cannot get shop by ID: %s", err)
 	}
-	return &shop
+	return shop
 }
 func GetShops(cityID *int, sortKey *string, limit, offset *int) ([]*Shop, int) {
 	var shops []*Shop
@@ -943,52 +928,38 @@ func GetShops(cityID *int, sortKey *string, limit, offset *int) ([]*Shop, int) {
 	orderBy := SHOPS_SORT_KEYS.CorrespondingOrderBy(sortKey)
 	queryName := utils.CurrentFuncName()
 	if cityID != nil {
-		shops = shopsQuery(queryName, orderBy.Compile(`
-		SELECT
-		  s.id,
-		  s.name,
-		  s.logo_small,
-		  s.logo_large,
-		  s.score,
-		  s.malls_count
+		shops = shopsQuery(queryName, orderBy.CompileBaseQuery(`
+		SELECT {columns}
 		FROM shop s
 		  JOIN mall_shop ms ON s.id = ms.shop_id
 		  JOIN mall m ON ms.mall_id = m.id
-		WHERE m.city_id = $3
-		ORDER BY %s
-		LIMIT $1
-		OFFSET $2
+		WHERE m.city_id = ?2
+		ORDER BY {order}
+		LIMIT ?0
+		OFFSET ?1
 		`), limit, offset, *cityID)
 		var ok bool
 		if totalCount, ok = totalCountFromResults(len(shops), limit, offset); !ok {
 			totalCount = countQuery(queryName, `
-			SELECT
-			  count(*) total_count
+			SELECT count(*)
 			FROM shop s
-			  JOIN mall_shop ms ON s.id = ms.shop_id
-			  JOIN mall m ON ms.mall_id = m.id
-			WHERE m.city_id = $1
+			  JOIN mall_shop ms ON s.shop_id = ms.shop_id
+			  JOIN mall m ON ms.mall_id = m.mall_id
+			WHERE m.city_id = ?0
 			`, *cityID)
 		}
 	} else {
-		shops = shopsQuery(queryName, orderBy.Compile(`
-		SELECT
-		  s.id,
-		  s.name,
-		  s.logo_small,
-		  s.logo_large,
-		  s.score,
-		  s.malls_count
+		shops = shopsQuery(queryName, orderBy.CompileBaseQuery(`
+		SELECT {columns}
 		FROM shop s
-		ORDER BY %s
-		LIMIT $1
-		OFFSET $2
+		ORDER BY {order}
+		LIMIT ?0
+		OFFSET ?1
 		`), limit, offset)
 		var ok bool
 		if totalCount, ok = totalCountFromResults(len(shops), limit, offset); !ok {
 			totalCount = countQuery(queryName, `
-			SELECT
-			  count(*) total_count
+			SELECT count(*)
 			FROM shop s
 			`)
 		}
@@ -998,29 +969,22 @@ func GetShops(cityID *int, sortKey *string, limit, offset *int) ([]*Shop, int) {
 func GetShopsByMall(mallID int, sortKey *string, limit, offset *int) ([]*Shop, int) {
 	orderBy := SHOPS_SORT_KEYS.CorrespondingOrderBy(sortKey)
 	queryName := utils.CurrentFuncName()
-	shops := shopsQuery(queryName, orderBy.Compile(`
-	SELECT
-	  s.id,
-	  s.name,
-	  s.logo_small,
-	  s.logo_large,
-	  s.score,
-	  s.malls_count
+	shops := shopsQuery(queryName, orderBy.CompileBaseQuery(`
+	SELECT {columns}
 	FROM shop s
 	  JOIN mall_shop ms ON s.id = ms.shop_id
-	WHERE ms.mall_id = $3
-	ORDER BY %s
-	LIMIT $1
-	OFFSET $2
+	WHERE ms.mall_id = ?2
+	ORDER BY {order}
+	LIMIT ?0
+	OFFSET ?1
 	`), limit, offset, mallID)
 	totalCount, ok := totalCountFromResults(len(shops), limit, offset)
 	if !ok {
 		totalCount = countQuery(queryName, `
-		SELECT
-		  count(*) total_count
+		SELECT count(*)
 		FROM shop s
-		  JOIN mall_shop ms ON s.id = ms.shop_id
-		WHERE ms.mall_id = $1
+		  JOIN mall_shop ms ON s.shop_id = ms.shop_id
+		WHERE ms.mall_id = ?0
 		`, mallID)
 	}
 	return shops, totalCount
@@ -1029,18 +993,12 @@ func GetShopsByIDs(shopIDs []int, cityID *int) ([]*Shop, int) {
 	if len(shopIDs) == 0 {
 		return nil, 0
 	}
-	shopIDsArray := pq.Array(shopIDs)
+	shopIDsArray := pg.Array(shopIDs)
 	queryName := utils.CurrentFuncName()
 	shops := shopsQuery(queryName, `
-	SELECT
-	  s.id,
-	  s.name,
-	  s.logo_small,
-	  s.logo_large,
-	  s.score,
-	  s.malls_count
+	SELECT %s
 	FROM shop s
-	WHERE s.id = ANY($1)
+	WHERE s.shop_id = ANY(?0)
 	`, shopIDsArray)
 	totalCount := len(shops)
 	return shops, totalCount
@@ -1051,59 +1009,47 @@ func GetShopsByName(name string, cityID *int, sortKey *string, limit, offset *in
 	orderBy := SHOPS_SORT_KEYS.CorrespondingOrderBy(sortKey)
 	queryName := utils.CurrentFuncName()
 	if cityID != nil {
-		shops = shopsQuery(queryName, orderBy.Compile(`
+		shops = shopsQuery(queryName, orderBy.CompileBaseQuery(`
 		SELECT *
-		FROM (SELECT DISTINCT ON (s.id)
-				s.id,
-				s.name,
-				s.logo_small,
-				s.logo_large,
-				s.score,
-				s.malls_count
+		FROM (SELECT DISTINCT ON (s.shop_id) {columns}
 			  FROM shop s
-				JOIN shop_name sn ON s.id = sn.shop_id
-				JOIN mall_shop ms ON s.id = ms.shop_id
-				JOIN mall m ON ms.mall_id = m.id
-			  WHERE sn.name ILIKE '%%' || $3 || '%%' AND m.city_id = $4) s
-		ORDER BY %s
-		LIMIT $1
-		OFFSET $2
+				JOIN shop_name sn ON s.shop_id = sn.shop_id
+				JOIN mall_shop ms ON s.shop_id = ms.shop_id
+				JOIN mall m ON ms.mall_id = m.mall_id
+			  WHERE sn.shop_name ILIKE '%%' || ?2 || '%%' AND m.city_id = ?3) s
+		ORDER BY {order}
+		LIMIT ?0
+		OFFSET ?1
 		`), limit, offset, name, cityID)
 		var ok bool
 		if totalCount, ok = totalCountFromResults(len(shops), limit, offset); !ok {
 			totalCount = countQuery(queryName, `
-			SELECT count(DISTINCT s.id) AS total_count
+			SELECT count(DISTINCT s.shop_id)
 			FROM shop s
-			  JOIN shop_name sn ON s.id = sn.shop_id
-			  JOIN mall_shop ms ON s.id = ms.shop_id
-			  JOIN mall m ON ms.mall_id = m.id
-			WHERE sn.name ILIKE '%' || $1 || '%' AND m.city_id = $2
+			  JOIN shop_name sn ON s.shop_id = sn.shop_id
+			  JOIN mall_shop ms ON s.shop_id = ms.shop_id
+			  JOIN mall m ON ms.mall_id = m.mall_id
+			WHERE sn.shop_name ILIKE '%' || ?0 || '%' AND m.city_id = ?0
 			`, name, cityID)
 		}
 	} else {
-		shops = shopsQuery(queryName, orderBy.Compile(`
+		shops = shopsQuery(queryName, orderBy.CompileBaseQuery(`
 		SELECT *
-		FROM (SELECT DISTINCT ON (s.id)
-				s.id,
-				s.name,
-				s.logo_small,
-				s.logo_large,
-				s.score,
-				s.malls_count
+		FROM (SELECT DISTINCT ON (s.shop_id) {columns}
 			  FROM shop s
-				JOIN shop_name sn ON s.id = sn.shop_id
-			  WHERE sn.name ILIKE '%%' || $3 || '%%') s
-		ORDER BY %s
-		LIMIT $1
-		OFFSET $2
+				JOIN shop_name sn ON s.shop_id = sn.shop_id
+			  WHERE sn.shop_name ILIKE '%%' || ?2 || '%%') s
+		ORDER BY {order}
+		LIMIT ?0
+		OFFSET ?1
 		`), limit, offset, name)
 		var ok bool
 		if totalCount, ok = totalCountFromResults(len(shops), limit, offset); !ok {
 			totalCount = countQuery(queryName, `
-			SELECT count(DISTINCT s.id) total_count
+			SELECT count(DISTINCT s.shop_id)
 			FROM shop s
-			  JOIN shop_name sn ON s.id = sn.shop_id
-			WHERE sn.name ILIKE '%' || $1 || '%'
+			  JOIN shop_name sn ON s.shop_id = sn.shop_id
+			WHERE sn.shop_name ILIKE '%' || ?0 || '%'
 			`, name)
 		}
 	}
@@ -1115,200 +1061,169 @@ func GetShopsByCategory(categoryID int, cityID *int, sortKey *string, limit, off
 	orderBy := SHOPS_SORT_KEYS.CorrespondingOrderBy(sortKey)
 	queryName := utils.CurrentFuncName()
 	if cityID != nil {
-		shops = shopsQuery(queryName, orderBy.Compile(`
+		shops = shopsQuery(queryName, orderBy.CompileBaseQuery(`
 		SELECT *
-		FROM (SELECT DISTINCT ON (s.id)
-				s.id,
-				s.name,
-				s.logo_small,
-				s.logo_large,
-				s.score,
-				s.malls_count
+		FROM (SELECT DISTINCT ON (s.shop_id) {columns}
 			  FROM shop s
-				JOIN shop_category sc ON s.id = sc.shop_id
-				JOIN mall_shop ms ON s.id = ms.shop_id
-				JOIN mall m ON ms.mall_id = m.id
-			  WHERE sc.category_id = $3 AND m.city_id = $4) s
-		ORDER BY %s
-		LIMIT $1
-		OFFSET $2
+				JOIN shop_category sc ON s.shop_id = sc.shop_id
+				JOIN mall_shop ms ON s.shop_id = ms.shop_id
+				JOIN mall m ON ms.mall_id = m.mall_id
+			  WHERE sc.category_id = ?2 AND m.city_id = ?3) s
+		ORDER BY {order}
+		LIMIT ?0
+		OFFSET ?1
 	`), limit, offset, categoryID, *cityID)
 		var ok bool
 		if totalCount, ok = totalCountFromResults(len(shops), limit, offset); !ok {
 			totalCount = countQuery(queryName, `
-			SELECT count(DISTINCT s.id) total_count
+			SELECT count(DISTINCT s.shop_id)
 			FROM shop s
-			  JOIN shop_category sc ON s.id = sc.shop_id
-			  JOIN mall_shop ms ON s.id = ms.shop_id
-			  JOIN mall m ON ms.mall_id = m.id
-			WHERE sc.category_id = $1 AND m.city_id = $2
+			  JOIN shop_category sc ON s.shop_id = sc.shop_id
+			  JOIN mall_shop ms ON s.shop_id = ms.shop_id
+			  JOIN mall m ON ms.mall_id = m.mall_id
+			WHERE sc.category_id = ?0 AND m.city_id = ?1
 			`, categoryID, *cityID)
 		}
 	} else {
-		shops = shopsQuery(queryName, orderBy.Compile(`
-		SELECT
-		  s.id,
-		  s.name,
-		  s.logo_small,
-		  s.logo_large,
-		  s.score,
-		  s.malls_count
+		shops = shopsQuery(queryName, orderBy.CompileBaseQuery(`
+		SELECT {columns}
 		FROM shop s
-		  JOIN shop_category sc ON s.id = sc.shop_id
-		WHERE sc.category_id = $3
-		ORDER BY %s
-		LIMIT $1
-		OFFSET $2
+		  JOIN shop_category sc ON s.shop_id = sc.shop_id
+		WHERE sc.category_id = ?2
+		ORDER BY {order}
+		LIMIT ?0
+		OFFSET ?1
 		`), limit, offset, categoryID)
 		var ok bool
 		if totalCount, ok = totalCountFromResults(len(shops), limit, offset); !ok {
 			totalCount = countQuery(queryName, `
-			SELECT count(*) total_count
+			SELECT count(*)
 			FROM shop s
-			  JOIN shop_category sc ON s.id = sc.shop_id
-			WHERE sc.category_id = $1
+			  JOIN shop_category sc ON s.shop_id = sc.shop_id
+			WHERE sc.category_id = ?0
 			`, categoryID)
 		}
 	}
 	return shops, totalCount
 }
-func shopsQuery(queryName, query string, args ...interface{}) []*Shop {
-	conn := db.GetConnection()
+func shopsQuery(queryName string, queryBasis baseQuery, args ...interface{}) []*Shop {
+	client := db.GetClient()
 	locLog := moduleLog.WithField("query", queryName)
-	rows, err := conn.Query(query, args...)
+	query := queryBasis.withColumns(`
+	  s.shop_id,
+	  s.shop_name,
+	  s.shop_logo_small,
+	  s.shop_logo_large,
+	  s.score,
+	  s.malls_count
+	`)
+	var rows []*shopRow
+	_, err := client.Query(&rows, query, args...)
 	if err != nil {
 		locLog.Panicf("Cannot get shops rows: %s", err)
 	}
-	defer rows.Close()
-	var shops []*Shop
-	for rows.Next() {
-		s := Shop{}
-		err = rows.Scan(&s.ID, &s.Name, &s.LogoSmall, &s.LogoLarge, &s.Score, &s.MallsCount)
-		if err != nil {
-			locLog.Panicf("Error during scaning shop row: %s", err)
-		}
-		shops = append(shops, &s)
-	}
-	err = rows.Err()
-	if err != nil {
-		locLog.Panicf("Error after scaning shops rows: %s", err)
+	shops := make([]*Shop, len(rows))
+	for i, row := range rows {
+		shops[i] = row.toModel()
 	}
 	return shops
 }
 func GetCategoryDetails(categoryID int, cityID *int) *Category {
-	conn := db.GetConnection()
 	queryName := utils.CurrentFuncName()
-	category := Category{}
-	err := conn.QueryRow(`
-	SELECT
-	  c.id,
-	  c.name,
-	  c.logo_small,
-	  c.logo_large,
-	  c.shops_count
+	categories := categoriesQuery(queryName, baseQuery(`
+	SELECT {columns}
 	FROM category c
-	WHERE c.id = $1
-	`, categoryID).Scan(&category.ID, &category.Name, &category.LogoSmall, &category.LogoLarge, &category.ShopsCount)
-	if err == sql.ErrNoRows {
+	WHERE c.category_id = ?0
+	LIMIT 1
+	`), categoryID)
+	if len(categories) == 0 {
 		return nil
-	} else if err != nil {
-		moduleLog.WithFields(log.Fields{"category": categoryID, "query": queryName}).Panicf("Cannot get category by ID: %s", err)
 	}
-	return &category
+	return categories[0]
 }
 func GetCategories(cityID *int, sortKey *string) []*Category {
 	orderBy := CATEGORIES_SORT_KEYS.CorrespondingOrderBy(sortKey)
 	queryName := utils.CurrentFuncName()
-	categories := categoriesQuery(queryName, orderBy.Compile(`
-	SELECT
-	  c.id,
-	  c.name,
-	  c.logo_small,
-	  c.logo_large,
-	  c.shops_count
+	categories := categoriesQuery(queryName, orderBy.CompileBaseQuery(`
+	SELECT {columns}
 	FROM category c
-	ORDER BY %s
+	ORDER BY {order}
 	`))
 	return categories
 }
 func GetCategoriesByIDs(categoryIDs []int, cityID *int) ([]*Category, int) {
-	categoryIDsArray := pq.Array(categoryIDs)
+	categoryIDsArray := pg.Array(categoryIDs)
 	queryName := utils.CurrentFuncName()
-	categories := categoriesQuery(queryName, `
-	SELECT
-	  c.id,
-	  c.name,
-	  c.logo_small,
-	  c.logo_large,
-	  c.shops_count
+	categories := categoriesQuery(queryName, baseQuery(`
+	SELECT {columns}
 	FROM category c
-	WHERE c.id = ANY ($1)
-	`, categoryIDsArray)
+	WHERE c.category_id = ANY (?0)
+	`), categoryIDsArray)
 	totalCount := len(categories)
 	return categories, totalCount
 }
 func GetCategoriesByShop(shopID int, cityID *int, sortKey *string) []*Category {
 	orderBy := CATEGORIES_SORT_KEYS.CorrespondingOrderBy(sortKey)
 	queryName := utils.CurrentFuncName()
-	categories := categoriesQuery(queryName, orderBy.Compile(`
-	SELECT
-	  c.id,
-	  c.name,
-	  c.logo_small,
-	  c.logo_large,
-	  c.shops_count
+	categories := categoriesQuery(queryName, orderBy.CompileBaseQuery(`
+	SELECT {columns}
 	FROM category c
-	  JOIN shop_category sc ON c.id = sc.category_id
-	WHERE sc.shop_id = $1
-	ORDER BY %s
+	  JOIN shop_category sc ON c.category_id = sc.category_id
+	WHERE sc.shop_id = ?0
+	ORDER BY {order}
 	`), shopID)
 	return categories
 }
-func categoriesQuery(queryName, query string, args ...interface{}) []*Category {
-	conn := db.GetConnection()
-	rows, err := conn.Query(query, args...)
+func categoriesQuery(queryName string, queryBasis baseQuery, args ...interface{}) []*Category {
+	client := db.GetClient()
+	query := queryBasis.withColumns(`
+	  c.category_id,
+	  c.category_name,
+	  c.category_logo_small,
+	  c.category_logo_large,
+	  c.shops_count
+	`)
+	var rows []*struct {
+		CategoryID        int
+		CategoryName      string
+		CategoryLogoSmall string
+		CategoryLogoLarge string
+		ShopsCount        int
+	}
+	_, err := client.Query(&rows, query, args...)
 	locLog := moduleLog.WithField("query", queryName)
 	if err != nil {
 		locLog.Panicf("Cannot get categories rows: %s", err)
 	}
-	defer rows.Close()
-	var shops []*Category
-	for rows.Next() {
-		c := Category{}
-		err = rows.Scan(&c.ID, &c.Name, &c.LogoSmall, &c.LogoLarge, &c.ShopsCount)
-		if err != nil {
-			locLog.Panicf("Error during scaning category row: %s", err)
+	categories := make([]*Category, len(rows))
+	for i, row := range rows {
+		categories[i] = &Category{
+			ID:         row.CategoryID,
+			Name:       row.CategoryName,
+			Logo:       Logo{Small: row.CategoryLogoSmall, Large: row.CategoryLogoLarge},
+			ShopsCount: row.ShopsCount,
 		}
-		shops = append(shops, &c)
 	}
-	err = rows.Err()
-	if err != nil {
-		locLog.Panicf("Error after scaning categories rows: %s", err)
-	}
-	return shops
+	return categories
 }
 func GetCities(sortKey *string) []*City {
 	orderBy := CITIES_SORT_KEYS.CorrespondingOrderBy(sortKey)
 	queryName := utils.CurrentFuncName()
-	cities := citiesQuery(queryName, orderBy.Compile(`
-	SELECT
-	  c.id,
-	  c.name
+	cities := citiesQuery(queryName, orderBy.CompileBaseQuery(`
+	SELECT {columns}
 	FROM city c
-	ORDER BY %s
+	ORDER BY {order}
 	`))
 	return cities
 }
 func GetCitiesByName(name string, sortKey *string) []*City {
 	orderBy := CITIES_SORT_KEYS.CorrespondingOrderBy(sortKey)
 	queryName := utils.CurrentFuncName()
-	cities := citiesQuery(queryName, orderBy.Compile(`
-	SELECT
-	  c.id,
-	  c.name
+	cities := citiesQuery(queryName, orderBy.CompileBaseQuery(`
+	SELECT {columns}
 	FROM city c
-	WHERE c.name ILIKE '%%' || $1 || '%%'
-	ORDER BY %s
+	WHERE c.city_name ILIKE '%%' || ?0 || '%%'
+	ORDER BY {order}
 	`), name)
 	return cities
 }
@@ -1316,45 +1231,37 @@ func GetCityByLocation(location *Location) *City {
 	if location == nil {
 		return nil
 	}
-	city := City{}
-	conn := db.GetConnection()
-	err := conn.QueryRow(`
-	SELECT
-	  c.id,
-	  c.name
+	queryName := utils.CurrentFuncName()
+	cities := citiesQuery(queryName, baseQuery(`
+	SELECT {columns}
 	FROM city c
-	WHERE st_dwithin(st_transform(c.location, 26986), st_transform(ST_Setsrid(st_point($1, $2), 4326), 26986), c.radius)
-	ORDER BY c.location <-> ST_SetSRID(ST_Point($1, $2), 4326)
+	WHERE st_dwithin(st_transform(c.city_location, 26986), st_transform(ST_Setsrid(st_point(?, ?), 4326), 26986), c.city_radius)
+	ORDER BY c.city_location <-> ST_SetSRID(ST_Point(?, ?), 4326)
 	LIMIT 1
-	`, location.Lon, location.Lat).Scan(&city.ID, &city.Name)
-	if err == sql.ErrNoRows {
+	`), location.Lon, location.Lat, location.Lon, location.Lat)
+	if len(cities) == 0 {
 		return nil
-	} else if err != nil {
-		queryName := utils.CurrentFuncName()
-		moduleLog.WithField("query", queryName).Panicf("Cannot get category by ID: %s", err)
 	}
-	return &city
+	return cities[0]
 }
-func citiesQuery(queryName, query string, args ...interface{}) []*City {
-	conn := db.GetConnection()
+func citiesQuery(queryName string, queryBasis baseQuery, args ...interface{}) []*City {
+	client := db.GetClient()
 	locLog := moduleLog.WithField("query", queryName)
-	rows, err := conn.Query(query, args...)
+	var rows []*struct {
+		CityID   int
+		CityName string
+	}
+	query := queryBasis.withColumns(`
+	  c.city_id,
+	  c.city_name
+	`)
+	_, err := client.Query(&rows, query, args...)
 	if err != nil {
 		locLog.Panicf("Cannot get cities rows: %s", err)
 	}
-	defer rows.Close()
-	var cities []*City
-	for rows.Next() {
-		c := City{}
-		err = rows.Scan(&c.ID, &c.Name)
-		if err != nil {
-			locLog.Panicf("Error during scaning city row: %s", err)
-		}
-		cities = append(cities, &c)
-	}
-	err = rows.Err()
-	if err != nil {
-		locLog.Panicf("Error after scaning cities rows: %s", err)
+	cities := make([]*City, len(rows))
+	for i, row := range rows {
+		cities[i] = &City{ID: row.CityID, Name: row.CityName}
 	}
 	return cities
 }

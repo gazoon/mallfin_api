@@ -48,6 +48,8 @@ type PostgresSettings struct {
 	Password string `json:"password"`
 	DBName   string `json:"name"`
 	PoolSize int    `json:"pool_size"`
+	Timeout  int    `json:"timeout"`
+	Retries  int    `json:"retries"`
 }
 type RedisSettings struct {
 	Host     string `json:"host"`
