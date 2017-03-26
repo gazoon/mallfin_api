@@ -31,10 +31,7 @@ func recoveryMiddleware(w http.ResponseWriter, r *http.Request, next http.Handle
 	}()
 	next(w, r)
 }
-func someTests() {
-}
 func main() {
-	someTests()
 	mainLogger := log.WithField("location", "main")
 	config.Initialization()
 	redisdb.Initialization()

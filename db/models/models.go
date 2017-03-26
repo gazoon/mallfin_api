@@ -276,7 +276,11 @@ type City struct {
 	ID   int
 	Name string
 }
-type ShopsInMalls map[int][]int
+
+type MallMatchedShops struct {
+	MallID  int   `json:"mall"`
+	ShopIDs []int `json:"shops"`
+}
 
 type SearchResult struct {
 	Mall     *Mall
@@ -533,35 +537,40 @@ func GetSearchResultsWithDistance(shopIDs []int, location *Location, cityID *int
 	}
 	return searchResults, totalCount
 }
-func GetShopsInMalls(mallIDs, shopIDs []int) ShopsInMalls {
-	mallsShops := ShopsInMalls{}
-	for _, mallID := range mallIDs {
-		mallsShops[mallID] = nil
-	}
-	if len(mallIDs) == 0 || len(shopIDs) == 0 {
-		return mallsShops
-	}
+func GetShopsInMalls(mallIDs, shopIDs []int) []*MallMatchedShops {
 	queryName := utils.CurrentFuncName()
 	locLog := moduleLog.WithField("query", queryName)
 	client := db.GetClient()
 	var rows []*struct {
 		MallID int
-		ShopID int
+		Shops  []int `pg:",array"`
 	}
 	_, err := client.Query(&rows, `
 	SELECT
 	  mall_id,
-	  shop_id
+	  array_agg(shop_id) shops
 	FROM mall_shop
-	WHERE mall_id = ANY (?0) AND shop_id = ANY (?1)
+	WHERE mall_id = ANY (?) AND shop_id = ANY (?)
+	GROUP BY mall_id
+	ORDER BY count(shop_id) DESC
 	`, pg.Array(mallIDs), pg.Array(shopIDs))
 	if err != nil && err != pg.ErrNoRows {
 		locLog.Panicf("Cannot get shops in malls occurrence: %s", err)
 	}
+	mallToShops := map[int][]int{}
 	for _, row := range rows {
-		mallsShops[row.MallID] = append(mallsShops[row.MallID], row.ShopID)
+		mallToShops[row.MallID] = row.Shops
 	}
-	return mallsShops
+	matchedShops := make([]*MallMatchedShops, len(rows))
+	for i, row := range rows {
+		matchedShops[i] = &MallMatchedShops{MallID: row.MallID, ShopIDs: row.Shops}
+	}
+	for _, mallID := range mallIDs {
+		if _, ok := mallToShops[mallID]; !ok {
+			matchedShops = append(matchedShops, &MallMatchedShops{MallID: mallID, ShopIDs: []int{}})
+		}
+	}
+	return matchedShops
 }
 func GetMallWorkingHours(mallID int) []*WorkPeriod {
 	queryName := utils.CurrentFuncName()

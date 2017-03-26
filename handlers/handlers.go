@@ -249,8 +249,8 @@ func ShopsInMalls(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	mallIDs := formData.Malls
 	shopIDs := formData.Shops
 	mallsShops := models.GetShopsInMalls(mallIDs, shopIDs)
-	serialized := serializers.SerializeShopsInMalls(mallsShops)
-	response(w, serialized)
+	//serialized := serializers.SerializeShopsInMalls(mallsShops)
+	response(w, mallsShops)
 }
 func Search(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	formData := searchForm{}
