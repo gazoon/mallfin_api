@@ -8,22 +8,27 @@ type Location struct {
 	Lat float64 `json:"lat"`
 	Lon float64 `json:"lon"`
 }
+
 type Logo struct {
 	Large string `json:"large"`
 	Small string `json:"small"`
 }
+
 type SubwayStation struct {
 	ID   int    `json:"id"`
 	Name string `json:"name"`
 }
+
 type WeekTime struct {
 	Time string `json:"time"`
 	Day  int    `json:"day"`
 }
+
 type WorkPeriod struct {
 	Opening *WeekTime `json:"opening"`
 	Closing *WeekTime `json:"closing"`
 }
+
 type MallBase struct {
 	ID         int       `json:"id"`
 	Name       string    `json:"name"`
@@ -32,6 +37,7 @@ type MallBase struct {
 	Location   *Location `json:"location"`
 	ShopsCount int       `json:"shops_count"`
 }
+
 type MallDetails struct {
 	*MallBase
 	Address       string         `json:"address"`
@@ -40,6 +46,7 @@ type MallDetails struct {
 	WorkingHours  []*WorkPeriod  `json:"working_hours"`
 	SubwayStation *SubwayStation `json:"subway_staion"`
 }
+
 type ShopBase struct {
 	ID         int    `json:"id"`
 	Name       string `json:"name"`
@@ -47,37 +54,55 @@ type ShopBase struct {
 	Score      int    `json:"score"`
 	MallsCount int    `json:"malls_count"`
 }
+
 type ShopDetails struct {
 	*ShopBase
 	Phone       string    `json:"phone"`
 	Site        string    `json:"site"`
 	NearestMall *MallBase `json:"nearest_mall"`
 }
+
 type CategoryBase struct {
 	ID         int    `json:"id"`
 	Name       string `json:"name"`
 	Logo       *Logo  `json:"logo"`
 	ShopsCount int    `json:"shops_count"`
 }
+
 type CategoryDetails struct {
 	*CategoryBase
 }
+
 type CityBase struct {
 	ID   int    `json:"id"`
 	Name string `json:"name"`
 }
+
 type CityDetails struct {
 	*CityBase
-}
-type ShopsInMall struct {
-	MallID  int   `json:"mall"`
-	ShopIDs []int `json:"shops"`
 }
 
 type SearchResult struct {
 	Mall     *MallBase `json:"mall"`
 	ShopIDs  []int     `json:"shops"`
 	Distance *float64  `json:"distance"`
+}
+
+type ShopsInMall struct {
+	MallID  int   `json:"mall"`
+	ShopIDs []int `json:"shops"`
+}
+
+func SerializeShopsInMalls(mallsShops []*models.MallMatchedShops) []*ShopsInMall {
+	serializer := make([]*ShopsInMall, len(mallsShops))
+	for i, v := range mallsShops {
+		shops := v.ShopIDs
+		if shops == nil {
+			shops = []int{}
+		}
+		serializer[i] = &ShopsInMall{MallID: v.MallID, ShopIDs: shops}
+	}
+	return serializer
 }
 
 func serializeMallBase(mall *models.Mall) *MallBase {
@@ -100,6 +125,7 @@ func serializeMallBase(mall *models.Mall) *MallBase {
 	}
 	return serializer
 }
+
 func serializeShopBase(shop *models.Shop) *ShopBase {
 	if shop == nil {
 		return nil
@@ -116,6 +142,7 @@ func serializeShopBase(shop *models.Shop) *ShopBase {
 	}
 	return serializer
 }
+
 func serializeCategoryBase(category *models.Category) *CategoryBase {
 	if category == nil {
 		return nil
@@ -131,6 +158,7 @@ func serializeCategoryBase(category *models.Category) *CategoryBase {
 	}
 	return serializer
 }
+
 func serializeCityBase(city *models.City) *CityBase {
 	if city == nil {
 		return nil
@@ -141,6 +169,7 @@ func serializeCityBase(city *models.City) *CityBase {
 	}
 	return serializer
 }
+
 func SerializeMall(mall *models.Mall) *MallDetails {
 	if mall == nil {
 		return nil
@@ -173,6 +202,7 @@ func SerializeMall(mall *models.Mall) *MallDetails {
 	}
 	return serializer
 }
+
 func SerializeShop(shop *models.Shop) *ShopDetails {
 	if shop == nil {
 		return nil
@@ -185,6 +215,7 @@ func SerializeShop(shop *models.Shop) *ShopDetails {
 	}
 	return serializer
 }
+
 func SerializeCategory(category *models.Category) *CategoryDetails {
 	if category == nil {
 		return nil
@@ -194,6 +225,7 @@ func SerializeCategory(category *models.Category) *CategoryDetails {
 	}
 	return serializer
 }
+
 func SerializeCity(city *models.City) *CityDetails {
 	if city == nil {
 		return nil
@@ -203,6 +235,7 @@ func SerializeCity(city *models.City) *CityDetails {
 	}
 	return serializer
 }
+
 func SerializeMalls(malls []*models.Mall) []*MallBase {
 	serializers := make([]*MallBase, len(malls))
 	for i := range malls {
@@ -211,6 +244,7 @@ func SerializeMalls(malls []*models.Mall) []*MallBase {
 	}
 	return serializers
 }
+
 func SerializeShops(shops []*models.Shop) []*ShopBase {
 	serializers := make([]*ShopBase, len(shops))
 	for i := range shops {
@@ -219,6 +253,7 @@ func SerializeShops(shops []*models.Shop) []*ShopBase {
 	}
 	return serializers
 }
+
 func SerializeCategories(categories []*models.Category) []*CategoryBase {
 	serializers := make([]*CategoryBase, len(categories))
 	for i := range categories {
@@ -227,6 +262,7 @@ func SerializeCategories(categories []*models.Category) []*CategoryBase {
 	}
 	return serializers
 }
+
 func SerializeCities(cities []*models.City) []*CityBase {
 	serializers := make([]*CityBase, len(cities))
 	for i := range cities {
@@ -235,16 +271,7 @@ func SerializeCities(cities []*models.City) []*CityBase {
 	}
 	return serializers
 }
-func SerializeShopsInMalls(mallsShops models.ShopsInMalls) []*ShopsInMall {
-	serializers := []*ShopsInMall{}
-	for mallID, shopIDs := range mallsShops {
-		if shopIDs == nil {
-			shopIDs = []int{}
-		}
-		serializers = append(serializers, &ShopsInMall{MallID: mallID, ShopIDs: shopIDs})
-	}
-	return serializers
-}
+
 func SerializeSearchResults(searchResults []*models.SearchResult) []*SearchResult {
 	serializers := make([]*SearchResult, len(searchResults))
 	for i := range searchResults {

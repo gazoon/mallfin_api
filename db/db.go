@@ -8,14 +8,16 @@ import (
 	"time"
 
 	log "github.com/Sirupsen/logrus"
+	"sync"
 )
 
 var (
 	db        *pg.DB
 	moduleLog = log.WithField("location", "postgres")
+	once      sync.Once
 )
 
-func createNewDB() *pg.DB {
+func CreateNewDB() *pg.DB {
 	pgConf := config.Postgres()
 	timeout := time.Second * time.Duration(pgConf.Timeout)
 	db := pg.Connect(&pg.Options{
@@ -36,26 +38,23 @@ func createNewDB() *pg.DB {
 	}
 	return db
 }
-func closeCurrentDB() {
-	if db != nil {
-		db.Close()
-	}
-}
-func setNewDB(newDB *pg.DB) {
-	closeCurrentDB()
-	db = newDB
-}
 
 func Initialization() {
-	db := createNewDB()
-	setNewDB(db)
+	once.Do(func() {
+		newDB := CreateNewDB()
+		db = newDB
+	})
 }
+
 func GetClient() *pg.DB {
 	if db == nil {
 		moduleLog.Panic("Postgres has not initialized yet")
 	}
 	return db
 }
+
 func Close() {
-	closeCurrentDB()
+	if db != nil {
+		db.Close()
+	}
 }

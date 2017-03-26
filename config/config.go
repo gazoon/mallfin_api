@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 
-	"flag"
+	"sync"
 
 	log "github.com/Sirupsen/logrus"
 )
@@ -12,6 +12,7 @@ import (
 var (
 	config    *Config
 	moduleLog = log.WithField("location", "config")
+	once      sync.Once
 )
 
 func GetConfig() *Config {
@@ -65,24 +66,25 @@ type Config struct {
 	Redis     *RedisSettings    `json:"redis"`
 }
 
-func getConfigPath() string {
-	var configPath string
-	flag.StringVar(&configPath, "conf", "", "Path to json config file.")
-	flag.Parse()
-	if configPath == "" {
-		log.Panic("Cannot start without path to config")
+func CreateConfig(path string) *Config {
+	if path == "" {
+		log.Panic("Empty config path")
 	}
-	return configPath
-}
-func Initialization() {
-	path := getConfigPath()
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
 		moduleLog.WithField("config_path", path).Panicf("Cannot read config: %s", err)
 	}
-	config = &Config{}
+	config := &Config{}
 	err = json.Unmarshal(data, config)
 	if err != nil {
 		moduleLog.Panicf("Cannot parse config: %s", err)
 	}
+	return config
+}
+
+func Initialization(configPath string) {
+	once.Do(func() {
+		newConfig := CreateConfig(configPath)
+		config = newConfig
+	})
 }

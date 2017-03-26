@@ -10,6 +10,7 @@ import (
 	_ "net/http/pprof"
 	"runtime/debug"
 
+	"flag"
 	log "github.com/Sirupsen/logrus"
 	"github.com/gazoon/httprouter"
 	"github.com/rs/cors"
@@ -32,14 +33,17 @@ func recoveryMiddleware(w http.ResponseWriter, r *http.Request, next http.Handle
 	next(w, r)
 }
 func main() {
-	mainLogger := log.WithField("location", "main")
-	config.Initialization()
+	var configPath string
+	flag.StringVar(&configPath, "conf", "", "Path to json config file.")
+	flag.Parse()
+	config.Initialization(configPath)
 	redisdb.Initialization()
 	defer redisdb.Close()
 
 	db.Initialization()
 	defer db.Close()
 
+	mainLogger := log.WithField("location", "main")
 	r := httprouter.New()
 	r.GET("/malls/", handlers.MallsList)
 	r.GET("/malls/:id/", handlers.MallDetails)

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"mallfin_api/config"
 
+	"sync"
+
 	log "github.com/Sirupsen/logrus"
 	"gopkg.in/redis.v5"
 )
@@ -13,9 +15,10 @@ const NUMBER_OF_DATABASES = 16
 var (
 	db        *redis.Client
 	moduleLog = log.WithField("location", "redis")
+	once      sync.Once
 )
 
-func newDBConnection(dbNumber int) *redis.Client {
+func CreateNewDB(dbNumber int) *redis.Client {
 	dbConf := config.Redis()
 	client := redis.NewClient(&redis.Options{
 		Addr:     fmt.Sprintf("%s:%d", dbConf.Host, dbConf.Port),
@@ -28,16 +31,8 @@ func newDBConnection(dbNumber int) *redis.Client {
 	}
 	return client
 }
-func closeCurrentConnection() {
-	if db != nil {
-		db.Close()
-	}
-}
-func setNewConnection(conn *redis.Client) {
-	closeCurrentConnection()
-	db = conn
-}
-func GetConnection() *redis.Client {
+
+func GetClient() *redis.Client {
 	if db == nil {
 		moduleLog.Panic("Redis has not initialized yet.")
 	}
@@ -45,15 +40,14 @@ func GetConnection() *redis.Client {
 }
 
 func Initialization() {
-	conn := newDBConnection(config.Redis().DB)
-	setNewConnection(conn)
+	once.Do(func() {
+		newDB := CreateNewDB(config.Redis().DB)
+		db = newDB
+	})
 }
-func InitializationForTests() {
-	realDBNumber := config.Redis().DB
-	testDBNumber := (realDBNumber + 1) % NUMBER_OF_DATABASES
-	conn := newDBConnection(testDBNumber)
-	setNewConnection(conn)
-}
+
 func Close() {
-	closeCurrentConnection()
+	if db != nil {
+		db.Close()
+	}
 }

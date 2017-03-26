@@ -49,6 +49,7 @@ func MallsList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	serialized := serializers.SerializeMalls(malls)
 	paginateResponse(w, r, serialized, totalCount, limit, offset)
 }
+
 func MallDetails(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	mallID, err := ps.ByNameInt("id")
 	if err != nil {
@@ -63,6 +64,7 @@ func MallDetails(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	serialized := serializers.SerializeMall(mall)
 	response(w, serialized)
 }
+
 func ShopsList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	formData := shopsListForm{}
 	errs := binding.Form(r, &formData)
@@ -102,6 +104,7 @@ func ShopsList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	serialized := serializers.SerializeShops(shops)
 	paginateResponse(w, r, serialized, totalCount, limit, offset)
 }
+
 func ShopDetails(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	formData := shopDetailsForm{}
 	errs := binding.Form(r, &formData)
@@ -133,6 +136,7 @@ func ShopDetails(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	serialized := serializers.SerializeShop(shop)
 	response(w, serialized)
 }
+
 func CategoriesList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	formData := categoriesListForm{}
 	errs := binding.Form(r, &formData)
@@ -159,6 +163,7 @@ func CategoriesList(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 	serialized := serializers.SerializeCategories(categories)
 	response(w, serialized)
 }
+
 func CategoryDetails(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	formData := categoryDetailsForm{}
 	errs := binding.Form(r, &formData)
@@ -183,6 +188,7 @@ func CategoryDetails(w http.ResponseWriter, r *http.Request, ps httprouter.Param
 	serialized := serializers.SerializeCategory(category)
 	response(w, serialized)
 }
+
 func CitiesList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	formData := citiesListForm{}
 	errs := binding.Form(r, &formData)
@@ -201,6 +207,7 @@ func CitiesList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	serialized := serializers.SerializeCities(cities)
 	response(w, serialized)
 }
+
 func CurrentCity(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	formData := CoordinatesForm{}
 	errs := binding.Form(r, &formData)
@@ -220,6 +227,7 @@ func CurrentCity(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	serialized := serializers.SerializeCity(city)
 	response(w, serialized)
 }
+
 func CurrentMall(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	formData := CoordinatesForm{}
 	errs := binding.Form(r, &formData)
@@ -239,6 +247,7 @@ func CurrentMall(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	serialized := serializers.SerializeMall(mall)
 	response(w, serialized)
 }
+
 func ShopsInMalls(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	formData := shopsInMallsForm{}
 	errs := binding.Form(r, &formData)
@@ -249,9 +258,10 @@ func ShopsInMalls(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	mallIDs := formData.Malls
 	shopIDs := formData.Shops
 	mallsShops := models.GetShopsInMalls(mallIDs, shopIDs)
-	//serialized := serializers.SerializeShopsInMalls(mallsShops)
-	response(w, mallsShops)
+	serialized := serializers.SerializeShopsInMalls(mallsShops)
+	response(w, serialized)
 }
+
 func Search(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	formData := searchForm{}
 	errs := binding.Form(r, &formData)

@@ -50,7 +50,7 @@ func (d *DistributedMutex) Lock() error {
 	if err != nil {
 		return err
 	}
-	redisConn := redisdb.GetConnection()
+	redisConn := redisdb.GetClient()
 	for {
 		setted, err := redisConn.SetNX(d.Resource, mutexId, MAX_LOCK_TIME).Result()
 		if err != nil {
@@ -68,7 +68,7 @@ func (d *DistributedMutex) Unlock() error {
 	if d.mutexId == "" {
 		return errors.New("mutex hasn't locked yet")
 	}
-	redisConn := redisdb.GetConnection()
+	redisConn := redisdb.GetClient()
 	err := redisConn.Eval(UNLOCK_SCRIPT, []string{d.Resource}, d.mutexId).Err()
 	d.mutexId = ""
 	return err
