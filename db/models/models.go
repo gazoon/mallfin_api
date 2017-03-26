@@ -48,18 +48,18 @@ type SortKeyToOrderBy struct {
 }
 
 var (
-	MALL_DEFAULT_ORDER_BY     = &OrderBy{Column: "m.id", Reverse: false}
-	SHOP_DEFAULT_ORDER_BY     = &OrderBy{Column: "s.id", Reverse: false}
-	CATEGORY_DEFAULT_ORDER_BY = &OrderBy{Column: "c.id", Reverse: false}
-	CITY_DEFAULT_ORDER_BY     = &OrderBy{Column: "c.id", Reverse: false}
-	SEARCH_DEFAULT_ORDER_BY   = &OrderBy{Column: "m.id", Reverse: false}
+	MALL_DEFAULT_ORDER_BY     = &OrderBy{Column: "m.mall_id", Reverse: false}
+	SHOP_DEFAULT_ORDER_BY     = &OrderBy{Column: "s.shop_id", Reverse: false}
+	CATEGORY_DEFAULT_ORDER_BY = &OrderBy{Column: "c.category_id", Reverse: false}
+	CITY_DEFAULT_ORDER_BY     = &OrderBy{Column: "c.city_id", Reverse: false}
+	SEARCH_DEFAULT_ORDER_BY   = &OrderBy{Column: "m.mall_id", Reverse: false}
 
 	MALLS_SORT_KEYS = &SortKeyToOrderBy{
 		dict: map[string]*OrderBy{
 			"id":           MALL_DEFAULT_ORDER_BY,
-			"-id":          {Column: "m.id", Reverse: true},
-			"name":         {Column: "m.name", Reverse: false},
-			"-name":        {Column: "m.name", Reverse: true},
+			"-id":          {Column: "m.mall_id", Reverse: true},
+			"name":         {Column: "m.mall_name", Reverse: false},
+			"-name":        {Column: "m.mall_name", Reverse: true},
 			"shops_count":  {Column: "m.shops_count", Reverse: false},
 			"-shops_count": {Column: "m.shops_count", Reverse: true},
 		},
@@ -68,9 +68,9 @@ var (
 	SHOPS_SORT_KEYS = &SortKeyToOrderBy{
 		dict: map[string]*OrderBy{
 			"id":           SHOP_DEFAULT_ORDER_BY,
-			"-id":          {Column: "s.id", Reverse: true},
-			"name":         {Column: "s.name", Reverse: false},
-			"-name":        {Column: "s.name", Reverse: true},
+			"-id":          {Column: "s.shop_id", Reverse: true},
+			"name":         {Column: "s.shop_name", Reverse: false},
+			"-name":        {Column: "s.shop_name", Reverse: true},
 			"score":        {Column: "s.score", Reverse: false},
 			"-score":       {Column: "s.score", Reverse: true},
 			"malls_count":  {Column: "s.malls_count", Reverse: false},
@@ -81,9 +81,9 @@ var (
 	CATEGORIES_SORT_KEYS = &SortKeyToOrderBy{
 		dict: map[string]*OrderBy{
 			"id":           CATEGORY_DEFAULT_ORDER_BY,
-			"-id":          {Column: "c.id", Reverse: true},
-			"name":         {Column: "c.name", Reverse: false},
-			"-name":        {Column: "c.name", Reverse: true},
+			"-id":          {Column: "c.cateogry_id", Reverse: true},
+			"name":         {Column: "c.category_name", Reverse: false},
+			"-name":        {Column: "c.category_name", Reverse: true},
 			"shops_count":  {Column: "c.shops_count", Reverse: false},
 			"-shops_count": {Column: "c.shops_count", Reverse: true},
 		},
@@ -92,33 +92,33 @@ var (
 	CITIES_SORT_KEYS = &SortKeyToOrderBy{
 		dict: map[string]*OrderBy{
 			"id":    CITY_DEFAULT_ORDER_BY,
-			"-id":   {Column: "c.id", Reverse: true},
-			"name":  {Column: "c.name", Reverse: false},
-			"-name": {Column: "c.name", Reverse: true},
+			"-id":   {Column: "c.city_id", Reverse: true},
+			"name":  {Column: "c.city_name", Reverse: false},
+			"-name": {Column: "c.city_name", Reverse: true},
 		},
 		defaultOrderBy: CITY_DEFAULT_ORDER_BY,
 	}
 	SEARCH_SORT_KEYS = &SortKeyToOrderBy{
 		dict: map[string]*OrderBy{
-			"mall_id":           SEARCH_DEFAULT_ORDER_BY,
-			"-mall_id":          {Column: "m.id", Reverse: true},
-			"mall_name":         {Column: "m.name", Reverse: false},
-			"-mall_name":        {Column: "m.name", Reverse: true},
-			"mall_shops_count":  {Column: "m.shops_count", Reverse: false},
-			"-mall_shops_count": {Column: "m.shops_count", Reverse: true},
+			"mall_id":      SEARCH_DEFAULT_ORDER_BY,
+			"-mall_id":     {Column: "m.mall_id", Reverse: true},
+			"mall_name":    {Column: "m.mall_name", Reverse: false},
+			"-mall_name":   {Column: "m.mall_name", Reverse: true},
+			"shops_count":  {Column: "m.shops_count", Reverse: false},
+			"-shops_count": {Column: "m.shops_count", Reverse: true},
 		},
 		defaultOrderBy: SEARCH_DEFAULT_ORDER_BY,
 	}
 	SEARCH_WITH_DISTANCE_SORT_KEYS = &SortKeyToOrderBy{
 		dict: map[string]*OrderBy{
-			"mall_id":           SEARCH_DEFAULT_ORDER_BY,
-			"-mall_id":          {Column: "m.id", Reverse: true},
-			"mall_name":         {Column: "m.name", Reverse: false},
-			"-mall_name":        {Column: "m.name", Reverse: true},
-			"mall_shops_count":  {Column: "m.shops_count", Reverse: false},
-			"-mall_shops_count": {Column: "m.shops_count", Reverse: true},
-			"distance":          {Column: "distance", Reverse: false},
-			"-distance":         {Column: "distance", Reverse: true},
+			"mall_id":      SEARCH_DEFAULT_ORDER_BY,
+			"-mall_id":     {Column: "m.mall_id", Reverse: true},
+			"mall_name":    {Column: "m.mall_name", Reverse: false},
+			"-mall_name":   {Column: "m.mall_name", Reverse: true},
+			"shops_count":  {Column: "m.shops_count", Reverse: false},
+			"-shops_count": {Column: "m.shops_count", Reverse: true},
+			"distance":     {Column: "distance", Reverse: false},
+			"-distance":    {Column: "distance", Reverse: true},
 		},
 		defaultOrderBy: SEARCH_DEFAULT_ORDER_BY,
 	}
@@ -733,7 +733,7 @@ func GetMallsBySubwayStation(subwayStationID int, sortKey *string, limit, offset
 		SELECT count(*)
 		FROM mall m
 		  LEFT JOIN subway_station ss ON m.subway_station_id = ss.station_id
-		WHERE ss.id = ?0
+		WHERE ss.station_id = ?0
 		`, subwayStationID)
 	}
 	return malls, totalCount
@@ -808,7 +808,7 @@ func GetMallsByName(name string, cityID *int, sortKey *string, limit, offset *in
 			FROM mall m
 			  JOIN (SELECT DISTINCT ON (mall_id) mall_id
 					FROM mall_name
-					WHERE name ILIKE '%' || ?0 || '%') mn ON m.mall_id = mn.mall_id
+					WHERE mall_name ILIKE '%' || ?0 || '%') mn ON m.mall_id = mn.mall_id
 			WHERE m.city_id = ?1
 			`, name, *cityID)
 		}
@@ -818,7 +818,7 @@ func GetMallsByName(name string, cityID *int, sortKey *string, limit, offset *in
 		FROM mall m
 		  JOIN (SELECT DISTINCT ON (mall_id) mall_id
 				FROM mall_name
-				WHERE name ILIKE '%%' || ?2 || '%%') mn ON m.mall_id = mn.mall_id
+				WHERE mall_name ILIKE '%%' || ?2 || '%%') mn ON m.mall_id = mn.mall_id
 		ORDER BY {order}
 		LIMIT ?0
 		OFFSET ?1
@@ -830,7 +830,7 @@ func GetMallsByName(name string, cityID *int, sortKey *string, limit, offset *in
 			FROM mall m
 			  JOIN (SELECT DISTINCT ON (mall_id) mall_id
 					FROM mall_name
-					WHERE name ILIKE '%' || ?0 || '%') mn ON m.mall_id = mn.mall_id
+					WHERE mall_name ILIKE '%' || ?0 || '%') mn ON m.mall_id = mn.mall_id
 			`, name)
 		}
 	}
@@ -931,8 +931,8 @@ func GetShops(cityID *int, sortKey *string, limit, offset *int) ([]*Shop, int) {
 		shops = shopsQuery(queryName, orderBy.CompileBaseQuery(`
 		SELECT {columns}
 		FROM shop s
-		  JOIN mall_shop ms ON s.id = ms.shop_id
-		  JOIN mall m ON ms.mall_id = m.id
+		  JOIN mall_shop ms ON s.shop_id = ms.shop_id
+		  JOIN mall m ON ms.mall_id = m.mall_id
 		WHERE m.city_id = ?2
 		ORDER BY {order}
 		LIMIT ?0
@@ -972,7 +972,7 @@ func GetShopsByMall(mallID int, sortKey *string, limit, offset *int) ([]*Shop, i
 	shops := shopsQuery(queryName, orderBy.CompileBaseQuery(`
 	SELECT {columns}
 	FROM shop s
-	  JOIN mall_shop ms ON s.id = ms.shop_id
+	  JOIN mall_shop ms ON s.shop_id = ms.shop_id
 	WHERE ms.mall_id = ?2
 	ORDER BY {order}
 	LIMIT ?0
@@ -1029,7 +1029,7 @@ func GetShopsByName(name string, cityID *int, sortKey *string, limit, offset *in
 			  JOIN shop_name sn ON s.shop_id = sn.shop_id
 			  JOIN mall_shop ms ON s.shop_id = ms.shop_id
 			  JOIN mall m ON ms.mall_id = m.mall_id
-			WHERE sn.shop_name ILIKE '%' || ?0 || '%' AND m.city_id = ?0
+			WHERE sn.shop_name ILIKE '%' || ?0 || '%' AND m.city_id = ?1
 			`, name, cityID)
 		}
 	} else {
