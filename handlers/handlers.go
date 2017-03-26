@@ -6,6 +6,7 @@ import (
 	"mallfin_api/db/models"
 	"mallfin_api/serializers"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/gazoon/binding"
 	"github.com/gazoon/httprouter"
 )
@@ -26,25 +27,29 @@ func MallsList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	}
 	var malls []*models.Mall
 	var totalCount int
+	var err error
 	if formData.SubwayStation != nil {
 		subwayStationID := *formData.SubwayStation
-		if !models.IsSubwayStationExists(subwayStationID) {
-			errorResponse(w, SUBWAY_STATION_NOT_FOUND, "Subway station with such id does not exists.", http.StatusNotFound)
+		if !checkSubwayStation(w, subwayStationID) {
 			return
 		}
-		malls, totalCount = models.GetMallsBySubwayStation(subwayStationID, sortKey, limit, offset)
+		malls, totalCount, err = models.GetMallsBySubwayStation(subwayStationID, sortKey, limit, offset)
 	} else if formData.Query != nil {
 		name := *formData.Query
-		malls, totalCount = models.GetMallsByName(name, cityID, sortKey, limit, offset)
+		malls, totalCount, err = models.GetMallsByName(name, cityID, sortKey, limit, offset)
 	} else if formData.Shop != nil {
 		shopID := *formData.Shop
-		if !models.IsShopExists(shopID) {
-			errorResponse(w, SHOP_NOT_FOUND, "Shop with such id does not exists.", http.StatusNotFound)
+		if !checkShop(w, shopID) {
 			return
 		}
-		malls, totalCount = models.GetMallsByShop(shopID, cityID, sortKey, limit, offset)
+		malls, totalCount, err = models.GetMallsByShop(shopID, cityID, sortKey, limit, offset)
 	} else {
-		malls, totalCount = models.GetMalls(cityID, sortKey, limit, offset)
+		malls, totalCount, err = models.GetMalls(cityID, sortKey, limit, offset)
+	}
+	if err != nil {
+		log.Error(err)
+		internalErrorResponse(w)
+		return
 	}
 	serialized := serializers.SerializeMalls(malls)
 	paginateResponse(w, r, serialized, totalCount, limit, offset)
@@ -56,7 +61,12 @@ func MallDetails(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		errorResponse(w, INCORRECT_REQUEST_DATA, err.Error(), http.StatusBadRequest)
 		return
 	}
-	mall := models.GetMallDetails(mallID)
+	mall, err := models.GetMallDetails(mallID)
+	if err != nil {
+		log.Error(err)
+		internalErrorResponse(w)
+		return
+	}
 	if mall == nil {
 		errorResponse(w, MALL_NOT_FOUND, "Mall with such id does not exists", http.StatusNotFound)
 		return
@@ -81,25 +91,29 @@ func ShopsList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	}
 	var shops []*models.Shop
 	var totalCount int
+	var err error
 	if formData.Mall != nil {
 		mallID := *formData.Mall
-		if !models.IsMallExists(mallID) {
-			errorResponse(w, MALL_NOT_FOUND, "Mall with such id does not exists.", http.StatusNotFound)
+		if !checkMall(w, mallID) {
 			return
 		}
-		shops, totalCount = models.GetShopsByMall(mallID, sortKey, limit, offset)
+		shops, totalCount, err = models.GetShopsByMall(mallID, sortKey, limit, offset)
 	} else if formData.Query != nil {
 		name := *formData.Query
-		shops, totalCount = models.GetShopsByName(name, cityID, sortKey, limit, offset)
+		shops, totalCount, err = models.GetShopsByName(name, cityID, sortKey, limit, offset)
 	} else if formData.Category != nil {
 		categoryID := *formData.Category
-		if !models.IsCategoryExists(categoryID) {
-			errorResponse(w, CATEGORY_NOT_FOUND, "Category with such id does not exists.", http.StatusNotFound)
+		if !checkCategory(w, categoryID) {
 			return
 		}
-		shops, totalCount = models.GetShopsByCategory(categoryID, cityID, sortKey, limit, offset)
+		shops, totalCount, err = models.GetShopsByCategory(categoryID, cityID, sortKey, limit, offset)
 	} else {
-		shops, totalCount = models.GetShops(cityID, sortKey, limit, offset)
+		shops, totalCount, err = models.GetShops(cityID, sortKey, limit, offset)
+	}
+	if err != nil {
+		log.Error(err)
+		internalErrorResponse(w)
+		return
 	}
 	serialized := serializers.SerializeShops(shops)
 	paginateResponse(w, r, serialized, totalCount, limit, offset)
@@ -128,7 +142,12 @@ func ShopDetails(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 			Lon: *formData.LocationLon,
 		}
 	}
-	shop := models.GetShopDetails(shopID, userLocation, cityID)
+	shop, err := models.GetShopDetails(shopID, userLocation, cityID)
+	if err != nil {
+		log.Error(err)
+		internalErrorResponse(w)
+		return
+	}
 	if shop == nil {
 		errorResponse(w, SHOP_NOT_FOUND, "Shop with such id does not exists", http.StatusNotFound)
 		return
@@ -150,15 +169,20 @@ func CategoriesList(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 		return
 	}
 	var categories []*models.Category
+	var err error
 	if formData.Shop != nil {
 		shopID := *formData.Shop
-		if !models.IsShopExists(shopID) {
-			errorResponse(w, SHOP_NOT_FOUND, "Shop with such id does not exists.", http.StatusNotFound)
+		if !checkShop(w, shopID) {
 			return
 		}
-		categories = models.GetCategoriesByShop(shopID, cityID, sortKey)
+		categories, err = models.GetCategoriesByShop(shopID, cityID, sortKey)
 	} else {
-		categories = models.GetCategories(cityID, sortKey)
+		categories, err = models.GetCategories(cityID, sortKey)
+	}
+	if err != nil {
+		log.Error(err)
+		internalErrorResponse(w)
+		return
 	}
 	serialized := serializers.SerializeCategories(categories)
 	response(w, serialized)
@@ -180,7 +204,12 @@ func CategoryDetails(w http.ResponseWriter, r *http.Request, ps httprouter.Param
 	if !checkCity(w, cityID) {
 		return
 	}
-	category := models.GetCategoryDetails(categoryID, cityID)
+	category, err := models.GetCategoryDetails(categoryID, cityID)
+	if err != nil {
+		log.Error(err)
+		internalErrorResponse(w)
+		return
+	}
 	if category == nil {
 		errorResponse(w, CATEGORY_NOT_FOUND, "Category with such id does not exists", http.StatusNotFound)
 		return
@@ -198,11 +227,17 @@ func CitiesList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	}
 	sortKey := formData.Sort
 	var cities []*models.City
+	var err error
 	if formData.Query != nil {
 		name := *formData.Query
-		cities = models.GetCitiesByName(name, sortKey)
+		cities, err = models.GetCitiesByName(name, sortKey)
 	} else {
-		cities = models.GetCities(sortKey)
+		cities, err = models.GetCities(sortKey)
+	}
+	if err != nil {
+		log.Error(err)
+		internalErrorResponse(w)
+		return
 	}
 	serialized := serializers.SerializeCities(cities)
 	response(w, serialized)
@@ -219,7 +254,12 @@ func CurrentCity(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		Lat: formData.LocationLat,
 		Lon: formData.LocationLon,
 	}
-	city := models.GetCityByLocation(userLocation)
+	city, err := models.GetCityByLocation(userLocation)
+	if err != nil {
+		log.Error(err)
+		internalErrorResponse(w)
+		return
+	}
 	if city == nil {
 		errorResponse(w, CITY_NOT_FOUND, "In this place there is no city.", http.StatusNotFound)
 		return
@@ -239,7 +279,12 @@ func CurrentMall(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		Lat: formData.LocationLat,
 		Lon: formData.LocationLon,
 	}
-	mall := models.GetMallByLocation(userLocation)
+	mall, err := models.GetMallByLocation(userLocation)
+	if err != nil {
+		log.Error(err)
+		internalErrorResponse(w)
+		return
+	}
 	if mall == nil {
 		errorResponse(w, MALL_NOT_FOUND, "In this place there is no mall.", http.StatusNotFound)
 		return
@@ -257,7 +302,12 @@ func ShopsInMalls(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	}
 	mallIDs := formData.Malls
 	shopIDs := formData.Shops
-	mallsShops := models.GetShopsInMalls(mallIDs, shopIDs)
+	mallsShops, err := models.GetShopsInMalls(mallIDs, shopIDs)
+	if err != nil {
+		log.Error(err)
+		internalErrorResponse(w)
+		return
+	}
 	serialized := serializers.SerializeShopsInMalls(mallsShops)
 	response(w, serialized)
 }
@@ -279,15 +329,93 @@ func Search(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	}
 	var searchResults []*models.SearchResult
 	var totalCount int
+	var err error
 	if formData.LocationLat != nil && formData.LocationLon != nil {
 		userLocation := &models.Location{
 			Lat: *formData.LocationLat,
 			Lon: *formData.LocationLon,
 		}
-		searchResults, totalCount = models.GetSearchResultsWithDistance(shopIDs, userLocation, cityID, sortKey, limit, offset)
+		searchResults, totalCount, err = models.GetSearchResultsWithDistance(shopIDs, userLocation, cityID, sortKey, limit, offset)
 	} else {
-		searchResults, totalCount = models.GetSearchResults(shopIDs, cityID, sortKey, limit, offset)
+		searchResults, totalCount, err = models.GetSearchResults(shopIDs, cityID, sortKey, limit, offset)
+	}
+	if err != nil {
+		log.Error(err)
+		internalErrorResponse(w)
+		return
 	}
 	serialized := serializers.SerializeSearchResults(searchResults)
 	paginateResponse(w, r, serialized, totalCount, limit, offset)
+}
+
+func checkCity(w http.ResponseWriter, cityID *int) bool {
+	if cityID != nil {
+		exists, err := models.IsCityExists(*cityID)
+		if err != nil {
+			log.Error(err)
+			internalErrorResponse(w)
+			return false
+		}
+		if !exists {
+			errorResponse(w, CITY_NOT_FOUND, "City with such id does not exists.", http.StatusNotFound)
+			return false
+		}
+	}
+	return true
+}
+
+func checkShop(w http.ResponseWriter, shopID int) bool {
+	exists, err := models.IsShopExists(shopID)
+	if err != nil {
+		log.Error(err)
+		internalErrorResponse(w)
+		return false
+	}
+	if !exists {
+		errorResponse(w, SHOP_NOT_FOUND, "Shop with such id does not exists.", http.StatusNotFound)
+		return false
+	}
+	return true
+}
+
+func checkCategory(w http.ResponseWriter, categoryID int) bool {
+	exists, err := models.IsCategoryExists(categoryID)
+	if err != nil {
+		log.Error(err)
+		internalErrorResponse(w)
+		return false
+	}
+	if !exists {
+		errorResponse(w, CATEGORY_NOT_FOUND, "Category with such id does not exists.", http.StatusNotFound)
+		return false
+	}
+	return true
+}
+
+func checkMall(w http.ResponseWriter, mallID int) bool {
+	exists, err := models.IsMallExists(mallID)
+	if err != nil {
+		log.Error(err)
+		internalErrorResponse(w)
+		return false
+	}
+	if !exists {
+		errorResponse(w, MALL_NOT_FOUND, "Mall with such id does not exists.", http.StatusNotFound)
+		return false
+	}
+	return true
+}
+
+func checkSubwayStation(w http.ResponseWriter, subwayStationID int) bool {
+	exists, err := models.IsSubwayStationExists(subwayStationID)
+	if err != nil {
+		log.Error(err)
+		internalErrorResponse(w)
+		return false
+	}
+	if !exists {
+		errorResponse(w, SUBWAY_STATION_NOT_FOUND, "Subway station with such id does not exists.", http.StatusNotFound)
+		return false
+	}
+	return true
 }

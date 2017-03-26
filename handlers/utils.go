@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"mallfin_api/db/models"
 	"reflect"
 	"strconv"
 
@@ -13,6 +12,7 @@ import (
 
 const (
 	INCORRECT_REQUEST_DATA   = "INCORRECT_REQUEST_DATA"
+	INTERNAL_ERROR           = "INTERNAL_ERROR"
 	MALL_NOT_FOUND           = "MALL_NOT_FOUND"
 	CITY_NOT_FOUND           = "CITY_NOT_FOUND"
 	SUBWAY_STATION_NOT_FOUND = "SUBWAY_STATION_NOT_FOUND"
@@ -22,17 +22,21 @@ const (
 const DOES_NOT_EXISTS_MSG = "%s with such id does not exists."
 
 type JSONObject map[string]interface{}
+
 type ErrorData struct {
 	Code    string `json:"code"`
 	Details string `json:"details"`
 	Status  int    `json:"status_code"`
 }
+
 type ErrorResponse struct {
 	Error *ErrorData `json:"error"`
 }
+
 type SuccessResponse struct {
 	Data interface{} `json:"data"`
 }
+
 type PaginationData struct {
 	Count      int         `json:"count"`
 	TotalCount int         `json:"total_count"`
@@ -50,10 +54,14 @@ func writeJSON(w http.ResponseWriter, resp interface{}, status int) {
 	w.WriteHeader(status)
 	w.Write(b)
 }
+
 func errorResponse(w http.ResponseWriter, errorCode, details string, status int) {
 	errObj := ErrorData{Code: errorCode, Details: details, Status: status}
 	resp := ErrorResponse{Error: &errObj}
 	writeJSON(w, resp, status)
+}
+func internalErrorResponse(w http.ResponseWriter) {
+	errorResponse(w, INTERNAL_ERROR, "An internal server error occurred, please try again later.", http.StatusInternalServerError)
 }
 func response(w http.ResponseWriter, data interface{}) {
 	resp := SuccessResponse{Data: data}
@@ -71,6 +79,7 @@ func nextPage(totalCount, limit, offset int) (int, int, bool) {
 	}
 	return nextLimit, nextOffset, true
 }
+
 func prevPage(totalCount, limit, offset int) (int, int, bool) {
 	if offset == 0 {
 		return 0, 0, false
@@ -87,6 +96,7 @@ func prevPage(totalCount, limit, offset int) (int, int, bool) {
 	return prevLimit, prevOffset, true
 
 }
+
 func pageURL(r *http.Request, limit, offset int) string {
 	url := r.URL
 	params := url.Query()
@@ -94,8 +104,8 @@ func pageURL(r *http.Request, limit, offset int) string {
 	params.Set("offset", strconv.Itoa(offset))
 	url.RawQuery = params.Encode()
 	return url.String()
-
 }
+
 func paginateResponse(w http.ResponseWriter, r *http.Request, resultsList interface{}, totalCount int, limit, offset *int) {
 	limitValue := totalCount
 	if limit != nil {
@@ -123,13 +133,4 @@ func paginateResponse(w http.ResponseWriter, r *http.Request, resultsList interf
 		Prev:       prevPageURL,
 	}
 	response(w, data)
-}
-func checkCity(w http.ResponseWriter, cityID *int) bool {
-	if cityID != nil {
-		if !models.IsCityExists(*cityID) {
-			errorResponse(w, CITY_NOT_FOUND, "City with such id does not exists.", http.StatusNotFound)
-			return false
-		}
-	}
-	return true
 }

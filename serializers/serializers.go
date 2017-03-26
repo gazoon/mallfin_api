@@ -106,9 +106,6 @@ func SerializeShopsInMalls(mallsShops []*models.MallMatchedShops) []*ShopsInMall
 }
 
 func serializeMallBase(mall *models.Mall) *MallBase {
-	if mall == nil {
-		return nil
-	}
 	serializer := &MallBase{
 		ID:    mall.ID,
 		Name:  mall.Name,
@@ -127,9 +124,6 @@ func serializeMallBase(mall *models.Mall) *MallBase {
 }
 
 func serializeShopBase(shop *models.Shop) *ShopBase {
-	if shop == nil {
-		return nil
-	}
 	serializer := &ShopBase{
 		ID:   shop.ID,
 		Name: shop.Name,
@@ -144,9 +138,6 @@ func serializeShopBase(shop *models.Shop) *ShopBase {
 }
 
 func serializeCategoryBase(category *models.Category) *CategoryBase {
-	if category == nil {
-		return nil
-	}
 	serializer := &CategoryBase{
 		ID:   category.ID,
 		Name: category.Name,
@@ -160,9 +151,6 @@ func serializeCategoryBase(category *models.Category) *CategoryBase {
 }
 
 func serializeCityBase(city *models.City) *CityBase {
-	if city == nil {
-		return nil
-	}
 	serializer := &CityBase{
 		ID:   city.ID,
 		Name: city.Name,
@@ -171,9 +159,6 @@ func serializeCityBase(city *models.City) *CityBase {
 }
 
 func SerializeMall(mall *models.Mall) *MallDetails {
-	if mall == nil {
-		return nil
-	}
 	workingHours := make([]*WorkPeriod, len(mall.WorkingHours))
 	for i := range mall.WorkingHours {
 		period := mall.WorkingHours[i]
@@ -204,9 +189,6 @@ func SerializeMall(mall *models.Mall) *MallDetails {
 }
 
 func SerializeShop(shop *models.Shop) *ShopDetails {
-	if shop == nil {
-		return nil
-	}
 	serializer := &ShopDetails{
 		ShopBase:    serializeShopBase(shop),
 		Phone:       shop.Phone,
@@ -217,9 +199,6 @@ func SerializeShop(shop *models.Shop) *ShopDetails {
 }
 
 func SerializeCategory(category *models.Category) *CategoryDetails {
-	if category == nil {
-		return nil
-	}
 	serializer := &CategoryDetails{
 		CategoryBase: serializeCategoryBase(category),
 	}
@@ -227,9 +206,6 @@ func SerializeCategory(category *models.Category) *CategoryDetails {
 }
 
 func SerializeCity(city *models.City) *CityDetails {
-	if city == nil {
-		return nil
-	}
 	serializer := &CityDetails{
 		CityBase: serializeCityBase(city),
 	}

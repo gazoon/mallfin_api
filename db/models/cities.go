@@ -1,54 +1,60 @@
 package models
 
 import (
+	"github.com/pkg/errors"
 	"mallfin_api/db"
 	"mallfin_api/utils"
 )
 
-func GetCities(sortKey *string) []*City {
+func GetCities(sortKey *string) ([]*City, error) {
 	orderBy := CITIES_SORT_KEYS.CorrespondingOrderBy(sortKey)
 	queryName := utils.CurrentFuncName()
-	cities := citiesQuery(queryName, orderBy.CompileBaseQuery(`
+	cities, err := citiesQuery(queryName, orderBy.CompileBaseQuery(`
 	SELECT {columns}
 	FROM city c
 	ORDER BY {order}
 	`))
-	return cities
+	if err != nil {
+		return nil, err
+	}
+	return cities, nil
 }
 
-func GetCitiesByName(name string, sortKey *string) []*City {
+func GetCitiesByName(name string, sortKey *string) ([]*City, error) {
 	orderBy := CITIES_SORT_KEYS.CorrespondingOrderBy(sortKey)
 	queryName := utils.CurrentFuncName()
-	cities := citiesQuery(queryName, orderBy.CompileBaseQuery(`
+	cities, err := citiesQuery(queryName, orderBy.CompileBaseQuery(`
 	SELECT {columns}
 	FROM city c
 	WHERE c.city_name ILIKE '%%' || ?0 || '%%'
 	ORDER BY {order}
 	`), name)
-	return cities
+	if err != nil {
+		return nil, err
+	}
+	return cities, nil
 }
 
-func GetCityByLocation(location *Location) *City {
-	if location == nil {
-		return nil
-	}
+func GetCityByLocation(location *Location) (*City, error) {
 	queryName := utils.CurrentFuncName()
-	cities := citiesQuery(queryName, baseQuery(`
+	cities, err := citiesQuery(queryName, baseQuery(`
 	SELECT {columns}
 	FROM city c
 	WHERE st_dwithin(st_transform(c.city_location, 26986), st_transform(ST_Setsrid(st_point(?, ?), 4326), 26986), c.city_radius)
 	ORDER BY c.city_location <-> ST_SetSRID(ST_Point(?, ?), 4326)
 	LIMIT 1
 	`), location.Lon, location.Lat, location.Lon, location.Lat)
-	if len(cities) == 0 {
-		return nil
+	if err != nil {
+		return nil, err
 	}
-	return cities[0]
+	if len(cities) == 0 {
+		return nil, nil
+	}
+	return cities[0], nil
 }
 
-func citiesQuery(queryName string, queryBasis baseQuery, args ...interface{}) []*City {
+func citiesQuery(queryName string, queryBasis baseQuery, args ...interface{}) ([]*City, error) {
 	client := db.GetClient()
-	locLog := moduleLog.WithField("query", queryName)
 	var rows []*struct {
 		CityID   int
 		CityName string
@@ -59,11 +65,11 @@ func citiesQuery(queryName string, queryBasis baseQuery, args ...interface{}) []
 	`)
 	_, err := client.Query(&rows, query, args...)
 	if err != nil {
-		locLog.Panicf("Cannot get cities rows: %s", err)
+		return nil, errors.WithMessage(err, queryName)
 	}
 	cities := make([]*City, len(rows))
 	for i, row := range rows {
 		cities[i] = &City{ID: row.CityID, Name: row.CityName}
 	}
-	return cities
+	return cities, nil
 }

@@ -1,62 +1,75 @@
 package models
 
 import (
+	"github.com/pkg/errors"
 	pg "gopkg.in/pg.v5"
 	"mallfin_api/db"
 	"mallfin_api/utils"
 )
 
-func GetCategoryDetails(categoryID int, cityID *int) *Category {
+func GetCategoryDetails(categoryID int, cityID *int) (*Category, error) {
 	queryName := utils.CurrentFuncName()
-	categories := categoriesQuery(queryName, baseQuery(`
+	categories, err := categoriesQuery(queryName, baseQuery(`
 	SELECT {columns}
 	FROM category c
 	WHERE c.category_id = ?0
 	LIMIT 1
 	`), categoryID)
-	if len(categories) == 0 {
-		return nil
+	if err != nil {
+		return nil, err
 	}
-	return categories[0]
+	if len(categories) == 0 {
+		return nil, nil
+	}
+	return categories[0], nil
 }
 
-func GetCategories(cityID *int, sortKey *string) []*Category {
+func GetCategories(cityID *int, sortKey *string) ([]*Category, error) {
 	orderBy := CATEGORIES_SORT_KEYS.CorrespondingOrderBy(sortKey)
 	queryName := utils.CurrentFuncName()
-	categories := categoriesQuery(queryName, orderBy.CompileBaseQuery(`
+	categories, err := categoriesQuery(queryName, orderBy.CompileBaseQuery(`
 	SELECT {columns}
 	FROM category c
 	ORDER BY {order}
 	`))
-	return categories
+	if err != nil {
+		return nil, err
+	}
+	return categories, nil
 }
 
-func GetCategoriesByIDs(categoryIDs []int, cityID *int) ([]*Category, int) {
+func GetCategoriesByIDs(categoryIDs []int, cityID *int) ([]*Category, int, error) {
 	categoryIDsArray := pg.Array(categoryIDs)
 	queryName := utils.CurrentFuncName()
-	categories := categoriesQuery(queryName, baseQuery(`
+	categories, err := categoriesQuery(queryName, baseQuery(`
 	SELECT {columns}
 	FROM category c
 	WHERE c.category_id = ANY (?0)
 	`), categoryIDsArray)
+	if err != nil {
+		return nil, 0, err
+	}
 	totalCount := len(categories)
-	return categories, totalCount
+	return categories, totalCount, nil
 }
 
-func GetCategoriesByShop(shopID int, cityID *int, sortKey *string) []*Category {
+func GetCategoriesByShop(shopID int, cityID *int, sortKey *string) ([]*Category, error) {
 	orderBy := CATEGORIES_SORT_KEYS.CorrespondingOrderBy(sortKey)
 	queryName := utils.CurrentFuncName()
-	categories := categoriesQuery(queryName, orderBy.CompileBaseQuery(`
+	categories, err := categoriesQuery(queryName, orderBy.CompileBaseQuery(`
 	SELECT {columns}
 	FROM category c
 	  JOIN shop_category sc ON c.category_id = sc.category_id
 	WHERE sc.shop_id = ?0
 	ORDER BY {order}
 	`), shopID)
-	return categories
+	if err != nil {
+		return nil, err
+	}
+	return categories, nil
 }
 
-func categoriesQuery(queryName string, queryBasis baseQuery, args ...interface{}) []*Category {
+func categoriesQuery(queryName string, queryBasis baseQuery, args ...interface{}) ([]*Category, error) {
 	client := db.GetClient()
 	query := queryBasis.withColumns(`
 	  c.category_id,
@@ -73,9 +86,8 @@ func categoriesQuery(queryName string, queryBasis baseQuery, args ...interface{}
 		ShopsCount        int
 	}
 	_, err := client.Query(&rows, query, args...)
-	locLog := moduleLog.WithField("query", queryName)
 	if err != nil {
-		locLog.Panicf("Cannot get categories rows: %s", err)
+		return nil, errors.WithMessage(err, queryName)
 	}
 	categories := make([]*Category, len(rows))
 	for i, row := range rows {
@@ -86,5 +98,5 @@ func categoriesQuery(queryName string, queryBasis baseQuery, args ...interface{}
 			ShopsCount: row.ShopsCount,
 		}
 	}
-	return categories
+	return categories, nil
 }

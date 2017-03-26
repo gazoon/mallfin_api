@@ -3,6 +3,7 @@ package models
 import (
 	"fmt"
 	log "github.com/Sirupsen/logrus"
+	"github.com/pkg/errors"
 	"mallfin_api/db"
 	"strings"
 )
@@ -26,16 +27,16 @@ func totalCountFromResults(resultsLen int, limit, offset *int) (int, bool) {
 	return 0, false
 }
 
-func countQuery(queryName, query string, args ...interface{}) int {
+func countQuery(queryName, query string, args ...interface{}) (int, error) {
 	var row struct {
 		Count int
 	}
 	client := db.GetClient()
 	_, err := client.QueryOne(&row, query, args...)
 	if err != nil {
-		moduleLog.WithField("query", queryName).Panicf("Cannot do count query: %s", err)
+		return 0, errors.WithMessage(err, queryName)
 	}
-	return row.Count
+	return row.Count, nil
 }
 
 type OrderBy struct {
