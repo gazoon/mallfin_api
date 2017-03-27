@@ -1,9 +1,9 @@
-package models
+package db
 
 import (
-	"github.com/pkg/errors"
-	"mallfin_api/db"
 	"mallfin_api/utils"
+
+	"github.com/pkg/errors"
 )
 
 func IsShopExists(shopID int) (bool, error) {
@@ -78,7 +78,7 @@ func IsSubwayStationExists(subwayStationID int) (bool, error) {
 
 func existsQuery(queryName, query string, args ...interface{}) (bool, error) {
 	result := struct{ Exists bool }{}
-	client := db.GetClient()
+	client := GetClient()
 	_, err := client.QueryOne(&result, query, args...)
 	if err != nil {
 		return false, errors.WithMessage(err, queryName)

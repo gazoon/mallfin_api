@@ -1,13 +1,14 @@
-package models
+package db
 
 import (
+	"mallfin_api/models"
+	"mallfin_api/utils"
+
 	"github.com/pkg/errors"
 	pg "gopkg.in/pg.v5"
-	"mallfin_api/db"
-	"mallfin_api/utils"
 )
 
-func GetCategoryDetails(categoryID int, cityID *int) (*Category, error) {
+func GetCategoryDetails(categoryID int, cityID *int) (*models.Category, error) {
 	queryName := utils.CurrentFuncName()
 	categories, err := categoriesQuery(queryName, baseQuery(`
 	SELECT {columns}
@@ -24,8 +25,8 @@ func GetCategoryDetails(categoryID int, cityID *int) (*Category, error) {
 	return categories[0], nil
 }
 
-func GetCategories(cityID *int, sortKey *string) ([]*Category, error) {
-	orderBy := CATEGORIES_SORT_KEYS.CorrespondingOrderBy(sortKey)
+func GetCategories(cityID *int, sorting models.Sorting) ([]*models.Category, error) {
+	orderBy := categoryOrderBy(sorting)
 	queryName := utils.CurrentFuncName()
 	categories, err := categoriesQuery(queryName, orderBy.CompileBaseQuery(`
 	SELECT {columns}
@@ -38,7 +39,7 @@ func GetCategories(cityID *int, sortKey *string) ([]*Category, error) {
 	return categories, nil
 }
 
-func GetCategoriesByIDs(categoryIDs []int, cityID *int) ([]*Category, int, error) {
+func GetCategoriesByIDs(categoryIDs []int, cityID *int) ([]*models.Category, int, error) {
 	categoryIDsArray := pg.Array(categoryIDs)
 	queryName := utils.CurrentFuncName()
 	categories, err := categoriesQuery(queryName, baseQuery(`
@@ -53,8 +54,8 @@ func GetCategoriesByIDs(categoryIDs []int, cityID *int) ([]*Category, int, error
 	return categories, totalCount, nil
 }
 
-func GetCategoriesByShop(shopID int, cityID *int, sortKey *string) ([]*Category, error) {
-	orderBy := CATEGORIES_SORT_KEYS.CorrespondingOrderBy(sortKey)
+func GetCategoriesByShop(shopID int, cityID *int, sorting models.Sorting) ([]*models.Category, error) {
+	orderBy := categoryOrderBy(sorting)
 	queryName := utils.CurrentFuncName()
 	categories, err := categoriesQuery(queryName, orderBy.CompileBaseQuery(`
 	SELECT {columns}
@@ -69,8 +70,8 @@ func GetCategoriesByShop(shopID int, cityID *int, sortKey *string) ([]*Category,
 	return categories, nil
 }
 
-func categoriesQuery(queryName string, queryBasis baseQuery, args ...interface{}) ([]*Category, error) {
-	client := db.GetClient()
+func categoriesQuery(queryName string, queryBasis baseQuery, args ...interface{}) ([]*models.Category, error) {
+	client := GetClient()
 	query := queryBasis.withColumns(`
 	  c.category_id,
 	  c.category_name,
@@ -89,12 +90,12 @@ func categoriesQuery(queryName string, queryBasis baseQuery, args ...interface{}
 	if err != nil {
 		return nil, errors.WithMessage(err, queryName)
 	}
-	categories := make([]*Category, len(rows))
+	categories := make([]*models.Category, len(rows))
 	for i, row := range rows {
-		categories[i] = &Category{
+		categories[i] = &models.Category{
 			ID:         row.CategoryID,
 			Name:       row.CategoryName,
-			Logo:       Logo{Small: row.CategoryLogoSmall, Large: row.CategoryLogoLarge},
+			Logo:       models.Logo{Small: row.CategoryLogoSmall, Large: row.CategoryLogoLarge},
 			ShopsCount: row.ShopsCount,
 		}
 	}

@@ -1,7 +1,7 @@
 package serializers
 
 import (
-	"mallfin_api/db/models"
+	"mallfin_api/models"
 )
 
 type Location struct {

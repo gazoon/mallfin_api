@@ -1,7 +1,7 @@
-package models
+package db
 
 import (
-	"mallfin_api/db"
+	"mallfin_api/models"
 	"mallfin_api/utils"
 
 	"github.com/go-pg/pg"
@@ -20,11 +20,11 @@ type shopRow struct {
 	ShopSite  string
 }
 
-func (sr *shopRow) toModel() *Shop {
-	shop := &Shop{
+func (sr *shopRow) toModel() *models.Shop {
+	shop := &models.Shop{
 		ID:         sr.ShopID,
 		Name:       sr.ShopName,
-		Logo:       Logo{Small: sr.ShopLogoSmall, Large: sr.ShopLogoLarge},
+		Logo:       models.Logo{Small: sr.ShopLogoSmall, Large: sr.ShopLogoLarge},
 		Score:      sr.Score,
 		MallsCount: sr.MallsCount,
 		Phone:      sr.ShopPhone,
@@ -33,11 +33,11 @@ func (sr *shopRow) toModel() *Shop {
 	return shop
 }
 
-func GetShopDetails(shopID int, location *Location, cityID *int) (*Shop, error) {
-	client := db.GetClient()
+func GetShopDetails(shopID int, location *models.Location, cityID *int) (*models.Shop, error) {
+	client := GetClient()
 	queryName := utils.CurrentFuncName()
 	var err error
-	var shop *Shop
+	var shop *models.Shop
 	if location == nil {
 		var row shopRow
 		_, err = client.QueryOne(&row, `
@@ -96,11 +96,11 @@ func GetShopDetails(shopID int, location *Location, cityID *int) (*Shop, error) 
 	return shop, nil
 }
 
-func GetShops(cityID *int, sortKey *string, limit, offset *int) ([]*Shop, int, error) {
-	var shops []*Shop
+func GetShops(cityID *int, sorting models.Sorting, limit, offset *int) ([]*models.Shop, int, error) {
+	var shops []*models.Shop
 	var totalCount int
 	var err error
-	orderBy := SHOPS_SORT_KEYS.CorrespondingOrderBy(sortKey)
+	orderBy := shopOrderBy(sorting)
 	queryName := utils.CurrentFuncName()
 	if cityID != nil {
 		shops, err = shopsQuery(queryName, orderBy.CompileBaseQuery(`
@@ -154,8 +154,8 @@ func GetShops(cityID *int, sortKey *string, limit, offset *int) ([]*Shop, int, e
 	return shops, totalCount, nil
 }
 
-func GetShopsByMall(mallID int, sortKey *string, limit, offset *int) ([]*Shop, int, error) {
-	orderBy := SHOPS_SORT_KEYS.CorrespondingOrderBy(sortKey)
+func GetShopsByMall(mallID int, sorting models.Sorting, limit, offset *int) ([]*models.Shop, int, error) {
+	orderBy := shopOrderBy(sorting)
 	queryName := utils.CurrentFuncName()
 	shops, err := shopsQuery(queryName, orderBy.CompileBaseQuery(`
 	SELECT {columns}
@@ -184,7 +184,7 @@ func GetShopsByMall(mallID int, sortKey *string, limit, offset *int) ([]*Shop, i
 	return shops, totalCount, nil
 }
 
-func GetShopsByIDs(shopIDs []int, cityID *int) ([]*Shop, int, error) {
+func GetShopsByIDs(shopIDs []int, cityID *int) ([]*models.Shop, int, error) {
 	if len(shopIDs) == 0 {
 		return nil, 0, nil
 	}
@@ -202,11 +202,11 @@ func GetShopsByIDs(shopIDs []int, cityID *int) ([]*Shop, int, error) {
 	return shops, totalCount, nil
 }
 
-func GetShopsByName(name string, cityID *int, sortKey *string, limit, offset *int) ([]*Shop, int, error) {
-	var shops []*Shop
+func GetShopsByName(name string, cityID *int, sorting models.Sorting, limit, offset *int) ([]*models.Shop, int, error) {
+	var shops []*models.Shop
 	var totalCount int
 	var err error
-	orderBy := SHOPS_SORT_KEYS.CorrespondingOrderBy(sortKey)
+	orderBy := shopOrderBy(sorting)
 	queryName := utils.CurrentFuncName()
 	if cityID != nil {
 		shops, err = shopsQuery(queryName, orderBy.CompileBaseQuery(`
@@ -268,11 +268,11 @@ func GetShopsByName(name string, cityID *int, sortKey *string, limit, offset *in
 	return shops, totalCount, nil
 }
 
-func GetShopsByCategory(categoryID int, cityID *int, sortKey *string, limit, offset *int) ([]*Shop, int, error) {
-	var shops []*Shop
+func GetShopsByCategory(categoryID int, cityID *int, sorting models.Sorting, limit, offset *int) ([]*models.Shop, int, error) {
+	var shops []*models.Shop
 	var totalCount int
 	var err error
-	orderBy := SHOPS_SORT_KEYS.CorrespondingOrderBy(sortKey)
+	orderBy := shopOrderBy(sorting)
 	queryName := utils.CurrentFuncName()
 	if cityID != nil {
 		shops, err = shopsQuery(queryName, orderBy.CompileBaseQuery(`
@@ -333,8 +333,8 @@ func GetShopsByCategory(categoryID int, cityID *int, sortKey *string, limit, off
 	return shops, totalCount, nil
 }
 
-func shopsQuery(queryName string, queryBasis baseQuery, args ...interface{}) ([]*Shop, error) {
-	client := db.GetClient()
+func shopsQuery(queryName string, queryBasis baseQuery, args ...interface{}) ([]*models.Shop, error) {
+	client := GetClient()
 	query := queryBasis.withColumns(`
 	  s.shop_id,
 	  s.shop_name,
@@ -348,7 +348,7 @@ func shopsQuery(queryName string, queryBasis baseQuery, args ...interface{}) ([]
 	if err != nil {
 		return nil, errors.WithMessage(err, queryName)
 	}
-	shops := make([]*Shop, len(rows))
+	shops := make([]*models.Shop, len(rows))
 	for i, row := range rows {
 		shops[i] = row.toModel()
 	}

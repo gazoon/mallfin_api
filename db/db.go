@@ -1,19 +1,18 @@
 package db
 
 import (
-	"github.com/go-pg/pg"
-
 	"fmt"
 	"mallfin_api/config"
+	"sync"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
-	"sync"
+	"github.com/go-pg/pg"
 )
 
 var (
 	db        *pg.DB
-	moduleLog = log.WithField("location", "postgres")
+	moduleLog = log.WithField("location", "db")
 	once      sync.Once
 )
 

@@ -1,7 +1,7 @@
-package models
+package db
 
 import (
-	"mallfin_api/db"
+	"mallfin_api/models"
 	"mallfin_api/utils"
 
 	"github.com/go-pg/pg"
@@ -25,17 +25,17 @@ type mallRow struct {
 	StationName *string
 }
 
-func (mr *mallRow) toModel() *Mall {
-	var station *SubwayStation
+func (mr *mallRow) toModel() *models.Mall {
+	var station *models.SubwayStation
 	if mr.StationID != nil && mr.StationName != nil {
-		station = &SubwayStation{ID: *mr.StationID, Name: *mr.StationName}
+		station = &models.SubwayStation{ID: *mr.StationID, Name: *mr.StationName}
 	}
-	mall := &Mall{
+	mall := &models.Mall{
 		ID:          mr.MallID,
 		Name:        mr.MallName,
 		Phone:       mr.MallPhone,
-		Logo:        Logo{Small: mr.MallLogoSmall, Large: mr.MallLogoLarge},
-		Location:    Location{Lon: mr.MallLocationLon, Lat: mr.MallLocationLat},
+		Logo:        models.Logo{Small: mr.MallLogoSmall, Large: mr.MallLogoLarge},
+		Location:    models.Location{Lon: mr.MallLocationLon, Lat: mr.MallLocationLat},
 		ShopsCount:  mr.ShopsCount,
 		Address:     mr.Address,
 		DayAndNight: mr.DayAndNight,
@@ -45,7 +45,7 @@ func (mr *mallRow) toModel() *Mall {
 	return mall
 }
 
-func GetMallDetails(mallID int) (*Mall, error) {
+func GetMallDetails(mallID int) (*models.Mall, error) {
 	queryName := utils.CurrentFuncName()
 	mall, err := mallQuery(queryName, baseQuery(`
 	SELECT {columns}
@@ -60,7 +60,7 @@ func GetMallDetails(mallID int) (*Mall, error) {
 	return mall, nil
 }
 
-func GetMallByLocation(location *Location) (*Mall, error) {
+func GetMallByLocation(location *models.Location) (*models.Mall, error) {
 	queryName := utils.CurrentFuncName()
 	mall, err := mallQuery(queryName, baseQuery(`
 	SELECT {columns}
@@ -76,11 +76,11 @@ func GetMallByLocation(location *Location) (*Mall, error) {
 	return mall, nil
 }
 
-func GetMalls(cityID *int, sortKey *string, limit, offset *int) ([]*Mall, int, error) {
-	var malls []*Mall
+func GetMalls(cityID *int, sorting models.Sorting, limit, offset *int) ([]*models.Mall, int, error) {
+	var malls []*models.Mall
 	var totalCount int
 	var err error
-	orderBy := MALLS_SORT_KEYS.CorrespondingOrderBy(sortKey)
+	orderBy := mallOrderBy(sorting)
 	queryName := utils.CurrentFuncName()
 	if cityID != nil {
 		malls, err = mallsQuery(queryName, orderBy.CompileBaseQuery(`
@@ -130,7 +130,7 @@ func GetMalls(cityID *int, sortKey *string, limit, offset *int) ([]*Mall, int, e
 	return malls, totalCount, nil
 }
 
-func GetMallsByIDs(mallIDs []int) ([]*Mall, int, error) {
+func GetMallsByIDs(mallIDs []int) ([]*models.Mall, int, error) {
 	if len(mallIDs) == 0 {
 		return nil, 0, nil
 	}
@@ -148,8 +148,8 @@ func GetMallsByIDs(mallIDs []int) ([]*Mall, int, error) {
 	return malls, totalCount, nil
 }
 
-func GetMallsBySubwayStation(subwayStationID int, sortKey *string, limit, offset *int) ([]*Mall, int, error) {
-	orderBy := MALLS_SORT_KEYS.CorrespondingOrderBy(sortKey)
+func GetMallsBySubwayStation(subwayStationID int, sorting models.Sorting, limit, offset *int) ([]*models.Mall, int, error) {
+	orderBy := mallOrderBy(sorting)
 	queryName := utils.CurrentFuncName()
 	malls, err := mallsQuery(queryName, orderBy.CompileBaseQuery(`
 	SELECT {columns}
@@ -178,11 +178,11 @@ func GetMallsBySubwayStation(subwayStationID int, sortKey *string, limit, offset
 	return malls, totalCount, nil
 }
 
-func GetMallsByShop(shopID int, cityID *int, sortKey *string, limit, offset *int) ([]*Mall, int, error) {
-	var malls []*Mall
+func GetMallsByShop(shopID int, cityID *int, sorting models.Sorting, limit, offset *int) ([]*models.Mall, int, error) {
+	var malls []*models.Mall
 	var totalCount int
 	var err error
-	orderBy := MALLS_SORT_KEYS.CorrespondingOrderBy(sortKey)
+	orderBy := mallOrderBy(sorting)
 	queryName := utils.CurrentFuncName()
 	if cityID != nil {
 		malls, err = mallsQuery(queryName, orderBy.CompileBaseQuery(`
@@ -238,11 +238,11 @@ func GetMallsByShop(shopID int, cityID *int, sortKey *string, limit, offset *int
 	return malls, totalCount, nil
 }
 
-func GetMallsByName(name string, cityID *int, sortKey *string, limit, offset *int) ([]*Mall, int, error) {
-	var malls []*Mall
+func GetMallsByName(name string, cityID *int, sorting models.Sorting, limit, offset *int) ([]*models.Mall, int, error) {
+	var malls []*models.Mall
 	var totalCount int
 	var err error
-	orderBy := MALLS_SORT_KEYS.CorrespondingOrderBy(sortKey)
+	orderBy := mallOrderBy(sorting)
 	queryName := utils.CurrentFuncName()
 	if cityID != nil {
 		malls, err = mallsQuery(queryName, orderBy.CompileBaseQuery(`
@@ -304,9 +304,9 @@ func GetMallsByName(name string, cityID *int, sortKey *string, limit, offset *in
 	return malls, totalCount, nil
 }
 
-func GetShopsInMalls(mallIDs, shopIDs []int) ([]*MallMatchedShops, error) {
+func GetShopsInMalls(mallIDs, shopIDs []int) ([]*models.MallMatchedShops, error) {
 	queryName := utils.CurrentFuncName()
-	client := db.GetClient()
+	client := GetClient()
 	var rows []*struct {
 		MallID int
 		Shops  []int `pg:",array"`
@@ -327,21 +327,21 @@ func GetShopsInMalls(mallIDs, shopIDs []int) ([]*MallMatchedShops, error) {
 	for _, row := range rows {
 		mallToShops[row.MallID] = row.Shops
 	}
-	matchedShops := make([]*MallMatchedShops, len(rows))
+	matchedShops := make([]*models.MallMatchedShops, len(rows))
 	for i, row := range rows {
-		matchedShops[i] = &MallMatchedShops{MallID: row.MallID, ShopIDs: row.Shops}
+		matchedShops[i] = &models.MallMatchedShops{MallID: row.MallID, ShopIDs: row.Shops}
 	}
 	for _, mallID := range mallIDs {
 		if _, ok := mallToShops[mallID]; !ok {
-			matchedShops = append(matchedShops, &MallMatchedShops{MallID: mallID, ShopIDs: []int{}})
+			matchedShops = append(matchedShops, &models.MallMatchedShops{MallID: mallID, ShopIDs: []int{}})
 		}
 	}
 	return matchedShops, nil
 }
 
-func getMallWorkingHours(mallID int) ([]*WorkPeriod, error) {
+func getMallWorkingHours(mallID int) ([]*models.WorkPeriod, error) {
 	queryName := utils.CurrentFuncName()
-	client := db.GetClient()
+	client := GetClient()
 	var rows []*struct {
 		OpenDay   int
 		OpenTime  string
@@ -360,18 +360,18 @@ func getMallWorkingHours(mallID int) ([]*WorkPeriod, error) {
 	if err != nil && err != pg.ErrNoRows {
 		return nil, errors.WithMessage(err, queryName)
 	}
-	workingHours := make([]*WorkPeriod, len(rows))
+	workingHours := make([]*models.WorkPeriod, len(rows))
 	for i, row := range rows {
-		workingHours[i] = &WorkPeriod{
-			Open:  WeekTime{Day: row.OpenDay, Time: row.OpenTime},
-			Close: WeekTime{Day: row.CloseDay, Time: row.CloseTime},
+		workingHours[i] = &models.WorkPeriod{
+			Open:  models.WeekTime{Day: row.OpenDay, Time: row.OpenTime},
+			Close: models.WeekTime{Day: row.CloseDay, Time: row.CloseTime},
 		}
 	}
 	return workingHours, nil
 }
 
-func mallQuery(queryName string, queryBasis baseQuery, args ...interface{}) (*Mall, error) {
-	client := db.GetClient()
+func mallQuery(queryName string, queryBasis baseQuery, args ...interface{}) (*models.Mall, error) {
+	client := GetClient()
 	var row mallRow
 	query := queryBasis.withColumns(`
 	  m.mall_id,
@@ -404,8 +404,8 @@ func mallQuery(queryName string, queryBasis baseQuery, args ...interface{}) (*Ma
 	return mall, nil
 }
 
-func mallsQuery(queryName string, queryBasis baseQuery, args ...interface{}) ([]*Mall, error) {
-	client := db.GetClient()
+func mallsQuery(queryName string, queryBasis baseQuery, args ...interface{}) ([]*models.Mall, error) {
+	client := GetClient()
 	var rows []*mallRow
 	query := queryBasis.withColumns(`
 	  m.mall_id,
@@ -421,7 +421,7 @@ func mallsQuery(queryName string, queryBasis baseQuery, args ...interface{}) ([]
 	if err != nil {
 		return nil, errors.WithMessage(err, queryName)
 	}
-	malls := make([]*Mall, len(rows))
+	malls := make([]*models.Mall, len(rows))
 	for i, row := range rows {
 		malls[i] = row.toModel()
 	}

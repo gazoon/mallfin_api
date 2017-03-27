@@ -1,13 +1,14 @@
-package models
+package db
 
 import (
-	"github.com/pkg/errors"
-	"mallfin_api/db"
+	"mallfin_api/models"
 	"mallfin_api/utils"
+
+	"github.com/pkg/errors"
 )
 
-func GetCities(sortKey *string) ([]*City, error) {
-	orderBy := CITIES_SORT_KEYS.CorrespondingOrderBy(sortKey)
+func GetCities(sorting models.Sorting) ([]*models.City, error) {
+	orderBy := cityOrderBy(sorting)
 	queryName := utils.CurrentFuncName()
 	cities, err := citiesQuery(queryName, orderBy.CompileBaseQuery(`
 	SELECT {columns}
@@ -20,8 +21,8 @@ func GetCities(sortKey *string) ([]*City, error) {
 	return cities, nil
 }
 
-func GetCitiesByName(name string, sortKey *string) ([]*City, error) {
-	orderBy := CITIES_SORT_KEYS.CorrespondingOrderBy(sortKey)
+func GetCitiesByName(name string, sorting models.Sorting) ([]*models.City, error) {
+	orderBy := cityOrderBy(sorting)
 	queryName := utils.CurrentFuncName()
 	cities, err := citiesQuery(queryName, orderBy.CompileBaseQuery(`
 	SELECT {columns}
@@ -35,7 +36,7 @@ func GetCitiesByName(name string, sortKey *string) ([]*City, error) {
 	return cities, nil
 }
 
-func GetCityByLocation(location *Location) (*City, error) {
+func GetCityByLocation(location *models.Location) (*models.City, error) {
 	queryName := utils.CurrentFuncName()
 	cities, err := citiesQuery(queryName, baseQuery(`
 	SELECT {columns}
@@ -53,8 +54,8 @@ func GetCityByLocation(location *Location) (*City, error) {
 	return cities[0], nil
 }
 
-func citiesQuery(queryName string, queryBasis baseQuery, args ...interface{}) ([]*City, error) {
-	client := db.GetClient()
+func citiesQuery(queryName string, queryBasis baseQuery, args ...interface{}) ([]*models.City, error) {
+	client := GetClient()
 	var rows []*struct {
 		CityID   int
 		CityName string
@@ -67,9 +68,9 @@ func citiesQuery(queryName string, queryBasis baseQuery, args ...interface{}) ([
 	if err != nil {
 		return nil, errors.WithMessage(err, queryName)
 	}
-	cities := make([]*City, len(rows))
+	cities := make([]*models.City, len(rows))
 	for i, row := range rows {
-		cities[i] = &City{ID: row.CityID, Name: row.CityName}
+		cities[i] = &models.City{ID: row.CityID, Name: row.CityName}
 	}
 	return cities, nil
 }

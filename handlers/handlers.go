@@ -3,7 +3,8 @@ package handlers
 import (
 	"net/http"
 
-	"mallfin_api/db/models"
+	"mallfin_api/db"
+	"mallfin_api/models"
 	"mallfin_api/serializers"
 
 	log "github.com/Sirupsen/logrus"
@@ -18,7 +19,7 @@ func MallsList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		errorResponse(w, INCORRECT_REQUEST_DATA, errs.Error(), http.StatusBadRequest)
 		return
 	}
-	sortKey := formData.Sort
+	sorting := formData.Sort
 	limit := formData.Limit
 	offset := formData.Offset
 	cityID := formData.City
@@ -33,18 +34,18 @@ func MallsList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		if !checkSubwayStation(w, subwayStationID) {
 			return
 		}
-		malls, totalCount, err = models.GetMallsBySubwayStation(subwayStationID, sortKey, limit, offset)
+		malls, totalCount, err = db.GetMallsBySubwayStation(subwayStationID, sorting, limit, offset)
 	} else if formData.Query != nil {
 		name := *formData.Query
-		malls, totalCount, err = models.GetMallsByName(name, cityID, sortKey, limit, offset)
+		malls, totalCount, err = db.GetMallsByName(name, cityID, sorting, limit, offset)
 	} else if formData.Shop != nil {
 		shopID := *formData.Shop
 		if !checkShop(w, shopID) {
 			return
 		}
-		malls, totalCount, err = models.GetMallsByShop(shopID, cityID, sortKey, limit, offset)
+		malls, totalCount, err = db.GetMallsByShop(shopID, cityID, sorting, limit, offset)
 	} else {
-		malls, totalCount, err = models.GetMalls(cityID, sortKey, limit, offset)
+		malls, totalCount, err = db.GetMalls(cityID, sorting, limit, offset)
 	}
 	if err != nil {
 		log.Error(err)
@@ -61,7 +62,7 @@ func MallDetails(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		errorResponse(w, INCORRECT_REQUEST_DATA, err.Error(), http.StatusBadRequest)
 		return
 	}
-	mall, err := models.GetMallDetails(mallID)
+	mall, err := db.GetMallDetails(mallID)
 	if err != nil {
 		log.Error(err)
 		internalErrorResponse(w)
@@ -82,7 +83,7 @@ func ShopsList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		errorResponse(w, INCORRECT_REQUEST_DATA, errs.Error(), http.StatusBadRequest)
 		return
 	}
-	sortKey := formData.Sort
+	sorting := formData.Sort
 	limit := formData.Limit
 	offset := formData.Offset
 	cityID := formData.City
@@ -97,18 +98,18 @@ func ShopsList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		if !checkMall(w, mallID) {
 			return
 		}
-		shops, totalCount, err = models.GetShopsByMall(mallID, sortKey, limit, offset)
+		shops, totalCount, err = db.GetShopsByMall(mallID, sorting, limit, offset)
 	} else if formData.Query != nil {
 		name := *formData.Query
-		shops, totalCount, err = models.GetShopsByName(name, cityID, sortKey, limit, offset)
+		shops, totalCount, err = db.GetShopsByName(name, cityID, sorting, limit, offset)
 	} else if formData.Category != nil {
 		categoryID := *formData.Category
 		if !checkCategory(w, categoryID) {
 			return
 		}
-		shops, totalCount, err = models.GetShopsByCategory(categoryID, cityID, sortKey, limit, offset)
+		shops, totalCount, err = db.GetShopsByCategory(categoryID, cityID, sorting, limit, offset)
 	} else {
-		shops, totalCount, err = models.GetShops(cityID, sortKey, limit, offset)
+		shops, totalCount, err = db.GetShops(cityID, sorting, limit, offset)
 	}
 	if err != nil {
 		log.Error(err)
@@ -142,7 +143,7 @@ func ShopDetails(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 			Lon: *formData.LocationLon,
 		}
 	}
-	shop, err := models.GetShopDetails(shopID, userLocation, cityID)
+	shop, err := db.GetShopDetails(shopID, userLocation, cityID)
 	if err != nil {
 		log.Error(err)
 		internalErrorResponse(w)
@@ -163,7 +164,7 @@ func CategoriesList(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 		errorResponse(w, INCORRECT_REQUEST_DATA, errs.Error(), http.StatusBadRequest)
 		return
 	}
-	sortKey := formData.Sort
+	sorting := formData.Sort
 	cityID := formData.City
 	if !checkCity(w, cityID) {
 		return
@@ -175,9 +176,9 @@ func CategoriesList(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 		if !checkShop(w, shopID) {
 			return
 		}
-		categories, err = models.GetCategoriesByShop(shopID, cityID, sortKey)
+		categories, err = db.GetCategoriesByShop(shopID, cityID, sorting)
 	} else {
-		categories, err = models.GetCategories(cityID, sortKey)
+		categories, err = db.GetCategories(cityID, sorting)
 	}
 	if err != nil {
 		log.Error(err)
@@ -204,7 +205,7 @@ func CategoryDetails(w http.ResponseWriter, r *http.Request, ps httprouter.Param
 	if !checkCity(w, cityID) {
 		return
 	}
-	category, err := models.GetCategoryDetails(categoryID, cityID)
+	category, err := db.GetCategoryDetails(categoryID, cityID)
 	if err != nil {
 		log.Error(err)
 		internalErrorResponse(w)
@@ -225,14 +226,14 @@ func CitiesList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		errorResponse(w, INCORRECT_REQUEST_DATA, errs.Error(), http.StatusBadRequest)
 		return
 	}
-	sortKey := formData.Sort
+	sorting := formData.Sort
 	var cities []*models.City
 	var err error
 	if formData.Query != nil {
 		name := *formData.Query
-		cities, err = models.GetCitiesByName(name, sortKey)
+		cities, err = db.GetCitiesByName(name, sorting)
 	} else {
-		cities, err = models.GetCities(sortKey)
+		cities, err = db.GetCities(sorting)
 	}
 	if err != nil {
 		log.Error(err)
@@ -254,7 +255,7 @@ func CurrentCity(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		Lat: formData.LocationLat,
 		Lon: formData.LocationLon,
 	}
-	city, err := models.GetCityByLocation(userLocation)
+	city, err := db.GetCityByLocation(userLocation)
 	if err != nil {
 		log.Error(err)
 		internalErrorResponse(w)
@@ -279,7 +280,7 @@ func CurrentMall(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		Lat: formData.LocationLat,
 		Lon: formData.LocationLon,
 	}
-	mall, err := models.GetMallByLocation(userLocation)
+	mall, err := db.GetMallByLocation(userLocation)
 	if err != nil {
 		log.Error(err)
 		internalErrorResponse(w)
@@ -302,7 +303,7 @@ func ShopsInMalls(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	}
 	mallIDs := formData.Malls
 	shopIDs := formData.Shops
-	mallsShops, err := models.GetShopsInMalls(mallIDs, shopIDs)
+	mallsShops, err := db.GetShopsInMalls(mallIDs, shopIDs)
 	if err != nil {
 		log.Error(err)
 		internalErrorResponse(w)
@@ -323,7 +324,7 @@ func Search(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	offset := formData.Offset
 	cityID := formData.City
 	shopIDs := formData.Shops
-	sortKey := formData.Sort
+	sorting := formData.Sort
 	if !checkCity(w, cityID) {
 		return
 	}
@@ -335,9 +336,9 @@ func Search(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 			Lat: *formData.LocationLat,
 			Lon: *formData.LocationLon,
 		}
-		searchResults, totalCount, err = models.GetSearchResultsWithDistance(shopIDs, userLocation, cityID, sortKey, limit, offset)
+		searchResults, totalCount, err = db.GetSearchResultsWithDistance(shopIDs, userLocation, cityID, sorting, limit, offset)
 	} else {
-		searchResults, totalCount, err = models.GetSearchResults(shopIDs, cityID, sortKey, limit, offset)
+		searchResults, totalCount, err = db.GetSearchResults(shopIDs, cityID, sorting, limit, offset)
 	}
 	if err != nil {
 		log.Error(err)
@@ -350,7 +351,7 @@ func Search(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 
 func checkCity(w http.ResponseWriter, cityID *int) bool {
 	if cityID != nil {
-		exists, err := models.IsCityExists(*cityID)
+		exists, err := db.IsCityExists(*cityID)
 		if err != nil {
 			log.Error(err)
 			internalErrorResponse(w)
@@ -365,7 +366,7 @@ func checkCity(w http.ResponseWriter, cityID *int) bool {
 }
 
 func checkShop(w http.ResponseWriter, shopID int) bool {
-	exists, err := models.IsShopExists(shopID)
+	exists, err := db.IsShopExists(shopID)
 	if err != nil {
 		log.Error(err)
 		internalErrorResponse(w)
@@ -379,7 +380,7 @@ func checkShop(w http.ResponseWriter, shopID int) bool {
 }
 
 func checkCategory(w http.ResponseWriter, categoryID int) bool {
-	exists, err := models.IsCategoryExists(categoryID)
+	exists, err := db.IsCategoryExists(categoryID)
 	if err != nil {
 		log.Error(err)
 		internalErrorResponse(w)
@@ -393,7 +394,7 @@ func checkCategory(w http.ResponseWriter, categoryID int) bool {
 }
 
 func checkMall(w http.ResponseWriter, mallID int) bool {
-	exists, err := models.IsMallExists(mallID)
+	exists, err := db.IsMallExists(mallID)
 	if err != nil {
 		log.Error(err)
 		internalErrorResponse(w)
@@ -407,7 +408,7 @@ func checkMall(w http.ResponseWriter, mallID int) bool {
 }
 
 func checkSubwayStation(w http.ResponseWriter, subwayStationID int) bool {
-	exists, err := models.IsSubwayStationExists(subwayStationID)
+	exists, err := db.IsSubwayStationExists(subwayStationID)
 	if err != nil {
 		log.Error(err)
 		internalErrorResponse(w)

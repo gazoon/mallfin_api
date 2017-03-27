@@ -1,21 +1,22 @@
-package models
+package db
 
 import (
 	"mallfin_api/utils"
 
+	"mallfin_api/models"
+
 	"github.com/go-pg/pg"
 	"github.com/pkg/errors"
-	"mallfin_api/db"
 )
 
-func GetSearchResults(shopIDs []int, cityID *int, sortKey *string, limit, offset *int) ([]*SearchResult, int, error) {
+func GetSearchResults(shopIDs []int, cityID *int, sorting models.Sorting, limit, offset *int) ([]*models.SearchResult, int, error) {
 	if len(shopIDs) == 0 {
 		return nil, 0, nil
 	}
-	var searchResults []*SearchResult
+	var searchResults []*models.SearchResult
 	var totalCount int
 	var err error
-	orderBy := SEARCH_SORT_KEYS.CorrespondingOrderBy(sortKey)
+	orderBy := searchOrderBy(sorting)
 	shopIDsArray := pg.Array(shopIDs)
 	queryName := utils.CurrentFuncName()
 	if cityID != nil {
@@ -76,14 +77,14 @@ func GetSearchResults(shopIDs []int, cityID *int, sortKey *string, limit, offset
 	return searchResults, totalCount, nil
 }
 
-func GetSearchResultsWithDistance(shopIDs []int, location *Location, cityID *int, sortKey *string, limit, offset *int) ([]*SearchResult, int, error) {
+func GetSearchResultsWithDistance(shopIDs []int, location *models.Location, cityID *int, sorting models.Sorting, limit, offset *int) ([]*models.SearchResult, int, error) {
 	if len(shopIDs) == 0 {
 		return nil, 0, nil
 	}
-	var searchResults []*SearchResult
+	var searchResults []*models.SearchResult
 	var totalCount int
 	var err error
-	orderBy := SEARCH_WITH_DISTANCE_SORT_KEYS.CorrespondingOrderBy(sortKey)
+	orderBy := searchOrderBy(sorting)
 	shopIDsArray := pg.Array(shopIDs)
 	queryName := utils.CurrentFuncName()
 	if cityID != nil {
@@ -150,8 +151,8 @@ func GetSearchResultsWithDistance(shopIDs []int, location *Location, cityID *int
 	return searchResults, totalCount, nil
 }
 
-func searchResultsQuery(queryName string, queryBasis baseQuery, args ...interface{}) ([]*SearchResult, error) {
-	client := db.GetClient()
+func searchResultsQuery(queryName string, queryBasis baseQuery, args ...interface{}) ([]*models.SearchResult, error) {
+	client := GetClient()
 	var rows []*struct {
 		mallRow
 		Shops    []int `pg:",array"`
@@ -173,9 +174,9 @@ func searchResultsQuery(queryName string, queryBasis baseQuery, args ...interfac
 	if err != nil {
 		return nil, errors.WithMessage(err, queryName)
 	}
-	searchResults := make([]*SearchResult, len(rows))
+	searchResults := make([]*models.SearchResult, len(rows))
 	for i, row := range rows {
-		sr := SearchResult{
+		sr := models.SearchResult{
 			Mall:     row.mallRow.toModel(),
 			ShopIDs:  row.Shops,
 			Distance: row.Distance,
