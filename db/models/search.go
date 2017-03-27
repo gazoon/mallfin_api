@@ -19,18 +19,8 @@ func GetSearchResults(shopIDs []int, cityID *int, sortKey *string, limit, offset
 	shopIDsArray := pg.Array(shopIDs)
 	queryName := utils.CurrentFuncName()
 	if cityID != nil {
-		searchResults, err = searchResultsQuery(queryName, orderBy.CompileQuery(`
-		SELECT
-		  m.mall_id,
-		  m.mall_name,
-		  m.mall_phone,
-		  m.mall_logo_small,
-		  m.mall_logo_large,
-		  ST_Y(m.mall_location) mall_location_lat,
-		  ST_X(m.mall_location) mall_location_lon,
-		  m.shops_count,
-		  m.address,
-		  array_agg(ms.shop_id) shops,
+		searchResults, err = searchResultsQuery(queryName, orderBy.CompileBaseQuery(`
+		SELECT {columns}
 		  NULL                  distance
 		FROM mall m
 		  JOIN mall_shop ms ON m.mall_id = ms.mall_id
@@ -56,18 +46,8 @@ func GetSearchResults(shopIDs []int, cityID *int, sortKey *string, limit, offset
 			}
 		}
 	} else {
-		searchResults, err = searchResultsQuery(queryName, orderBy.CompileQuery(`
-		SELECT
-		  m.mall_id,
-		  m.mall_name,
-		  m.mall_phone,
-		  m.mall_logo_small,
-		  m.mall_logo_large,
-		  ST_Y(m.mall_location) mall_location_lat,
-		  ST_X(m.mall_location) mall_location_lon,
-		  m.shops_count,
-		  m.address,
-		  array_agg(ms.shop_id) shops,
+		searchResults, err = searchResultsQuery(queryName, orderBy.CompileBaseQuery(`
+		SELECT {columns}
 		  NULL                  distance
 		FROM mall m
 		  JOIN mall_shop ms ON m.mall_id = ms.mall_id
@@ -107,18 +87,8 @@ func GetSearchResultsWithDistance(shopIDs []int, location *Location, cityID *int
 	shopIDsArray := pg.Array(shopIDs)
 	queryName := utils.CurrentFuncName()
 	if cityID != nil {
-		searchResults, err = searchResultsQuery(queryName, orderBy.CompileQuery(`
-		SELECT
-		  m.mall_id,
-		  m.mall_name,
-		  m.mall_phone,
-		  m.mall_logo_small,
-		  m.mall_logo_large,
-		  ST_Y(m.mall_location) mall_location_lat,
-		  ST_X(m.mall_location) mall_location_lon,
-		  m.shops_count,
-		  m.address,
-		  array_agg(ms.shop_id) shops,
+		searchResults, err = searchResultsQuery(queryName, orderBy.CompileBaseQuery(`
+		SELECT {columns}
 		  st_distance(
 			  st_transform(m.mall_location, 26986),
 			  st_transform(st_setsrid(st_point(?3, ?4), 4326), 26986)
@@ -147,18 +117,8 @@ func GetSearchResultsWithDistance(shopIDs []int, location *Location, cityID *int
 			}
 		}
 	} else {
-		searchResults, err = searchResultsQuery(queryName, orderBy.CompileQuery(`
-		SELECT
-		  m.mall_id,
-		  m.mall_name,
-		  m.mall_phone,
-		  m.mall_logo_small,
-		  m.mall_logo_large,
-		  ST_Y(m.mall_location) mall_location_lat,
-		  ST_X(m.mall_location) mall_location_lon,
-		  m.shops_count,
-		  m.address,
-		  array_agg(ms.shop_id) shops,
+		searchResults, err = searchResultsQuery(queryName, orderBy.CompileBaseQuery(`
+		SELECT {columns}
 		  st_distance(
 			  st_transform(m.mall_location, 26986),
 			  st_transform(st_setsrid(st_point(?3, ?4), 4326), 26986)
@@ -190,13 +150,25 @@ func GetSearchResultsWithDistance(shopIDs []int, location *Location, cityID *int
 	return searchResults, totalCount, nil
 }
 
-func searchResultsQuery(queryName, query string, args ...interface{}) ([]*SearchResult, error) {
+func searchResultsQuery(queryName string, queryBasis baseQuery, args ...interface{}) ([]*SearchResult, error) {
 	client := db.GetClient()
 	var rows []*struct {
 		mallRow
 		Shops    []int `pg:",array"`
 		Distance *float64
 	}
+	query := queryBasis.withColumns(`
+	  m.mall_id,
+	  m.mall_name,
+	  m.mall_phone,
+	  m.mall_logo_small,
+	  m.mall_logo_large,
+	  ST_Y(m.mall_location) mall_location_lat,
+	  ST_X(m.mall_location) mall_location_lon,
+	  m.shops_count,
+	  m.address,
+	  array_agg(ms.shop_id) shops,
+	`)
 	_, err := client.Query(&rows, query, args...)
 	if err != nil {
 		return nil, errors.WithMessage(err, queryName)
