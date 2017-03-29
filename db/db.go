@@ -8,12 +8,13 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/go-pg/pg"
+	"mallfin_api/logging"
 )
 
 var (
-	db        *pg.DB
-	moduleLog = log.WithField("location", "db")
-	once      sync.Once
+	db     *pg.DB
+	logger = logging.WithPackage("db")
+	once   sync.Once
 )
 
 func CreateNewDB() *pg.DB {
@@ -33,7 +34,7 @@ func CreateNewDB() *pg.DB {
 	})
 	_, err := db.Exec(`SELECT 1`)
 	if err != nil {
-		moduleLog.WithFields(log.Fields{"conf": pgConf}).Panicf("Cannot connect to postgresql: %s", err)
+		logger.WithFields(log.Fields{"conf": pgConf}).Panicf("Cannot connect to postgresql: %s", err)
 	}
 	return db
 }
@@ -47,7 +48,7 @@ func Initialization() {
 
 func GetClient() *pg.DB {
 	if db == nil {
-		moduleLog.Panic("Postgres has not initialized yet")
+		logger.Panic("Postgres has not initialized yet")
 	}
 	return db
 }

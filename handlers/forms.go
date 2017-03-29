@@ -230,7 +230,7 @@ func (sf *searchForm) FieldMap(req *http.Request) binding.FieldMap {
 
 func (sf *searchForm) Validate(req *http.Request, errs binding.Errors) binding.Errors {
 	sorting := sf.Sort
-	if sorting != nil && sorting.Key() == models.DISTANCE_SORT_KEY && (sf.LocationLon == nil || sf.LocationLat == nil) {
+	if sorting != nil && sorting.Key() == models.DistanceSortKey && (sf.LocationLon == nil || sf.LocationLat == nil) {
 		errs = append(errs, binding.Error{
 			FieldNames: []string{"sort"},
 			Message:    "cannot sort by distance without location",

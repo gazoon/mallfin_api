@@ -99,44 +99,44 @@ func (s *sorting) Reversed() bool {
 }
 
 const (
-	ID_SORT_KEY          = "id"
-	NAME_SORT_KEY        = "name"
-	SHOPS_COUNT_SORT_KEY = "shops_count"
-	MALLS_COUNT_SORT_KEY = "malls_count"
-	SCORE_SORT_KEY       = "score"
-	DISTANCE_SORT_KEY    = "distance"
-	MALL_NAME_SORT_KEY   = "mall_name"
-	MALL_ID_SORT_KEY     = "mall_id"
+	IDSortKey         = "id"
+	NameSortKey       = "name"
+	ShopsCountSortKey = "shops_count"
+	MallsCountSortKey = "malls_count"
+	ScoreSortKey      = "score"
+	DistanceSortKey   = "distance"
+	MallNameSortKey   = "mall_name"
+	MallIDSortKey     = "mall_id"
 )
 
 const REVERSE_SIGN = "-"
 
 var (
-	DefaultMallSorting     = &sorting{key: ID_SORT_KEY, reversed: false}
+	DefaultMallSorting     = &sorting{key: IDSortKey, reversed: false}
 	DefaultShopSorting     = DefaultMallSorting
 	DefaultCategorySorting = DefaultMallSorting
 	DefaultCitySorting     = DefaultMallSorting
-	DefaultSearchSorting   = &sorting{key: MALL_ID_SORT_KEY, reversed: false}
+	DefaultSearchSorting   = &sorting{key: MallIDSortKey, reversed: false}
 )
 
 func MallSorting(rawSorting string) (Sorting, error) {
-	return modelSorting(rawSorting, ID_SORT_KEY, NAME_SORT_KEY, SHOPS_COUNT_SORT_KEY)
+	return modelSorting(rawSorting, IDSortKey, NameSortKey, ShopsCountSortKey)
 }
 
 func ShopSorting(rawSorting string) (Sorting, error) {
-	return modelSorting(rawSorting, ID_SORT_KEY, NAME_SORT_KEY, SCORE_SORT_KEY, MALLS_COUNT_SORT_KEY)
+	return modelSorting(rawSorting, IDSortKey, NameSortKey, ScoreSortKey, MallsCountSortKey)
 }
 
 func CategorySorting(rawSorting string) (Sorting, error) {
-	return modelSorting(rawSorting, ID_SORT_KEY, NAME_SORT_KEY, SHOPS_COUNT_SORT_KEY)
+	return modelSorting(rawSorting, IDSortKey, NameSortKey, ShopsCountSortKey)
 }
 
 func CitySorting(rawSorting string) (Sorting, error) {
-	return modelSorting(rawSorting, ID_SORT_KEY, NAME_SORT_KEY)
+	return modelSorting(rawSorting, IDSortKey, NameSortKey)
 }
 
 func SearchSorting(rawSorting string) (Sorting, error) {
-	return modelSorting(rawSorting, MALL_ID_SORT_KEY, MALL_NAME_SORT_KEY, SHOPS_COUNT_SORT_KEY, DISTANCE_SORT_KEY)
+	return modelSorting(rawSorting, MallIDSortKey, MallNameSortKey, ShopsCountSortKey, DistanceSortKey)
 }
 
 func modelSorting(rawSorting string, validSortKeys ...string) (Sorting, error) {

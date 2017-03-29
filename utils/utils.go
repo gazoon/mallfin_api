@@ -14,9 +14,9 @@ import (
 )
 
 const (
-	MAX_LOCK_TIME = 10 * time.Second
-	DELAY_TIME    = 100 * time.Millisecond
-	UNLOCK_SCRIPT = `
+	MaxLockTime  = 10 * time.Second
+	DelayTime    = 100 * time.Millisecond
+	UnlockScript = `
 	if redis.call("get",KEYS[1]) == ARGV[1] then
 		return redis.call("del",KEYS[1])
 	else
@@ -52,14 +52,14 @@ func (d *DistributedMutex) Lock() error {
 	}
 	redisConn := redisdb.GetClient()
 	for {
-		setted, err := redisConn.SetNX(d.Resource, mutexId, MAX_LOCK_TIME).Result()
+		setted, err := redisConn.SetNX(d.Resource, mutexId, MaxLockTime).Result()
 		if err != nil {
 			return err
 		}
 		if setted {
 			break
 		}
-		time.Sleep(DELAY_TIME)
+		time.Sleep(DelayTime)
 	}
 	d.mutexId = mutexId
 	return nil
@@ -69,7 +69,7 @@ func (d *DistributedMutex) Unlock() error {
 		return errors.New("mutex hasn't locked yet")
 	}
 	redisConn := redisdb.GetClient()
-	err := redisConn.Eval(UNLOCK_SCRIPT, []string{d.Resource}, d.mutexId).Err()
+	err := redisConn.Eval(UnlockScript, []string{d.Resource}, d.mutexId).Err()
 	d.mutexId = ""
 	return err
 }

@@ -8,14 +8,15 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"gopkg.in/redis.v5"
+	"mallfin_api/logging"
 )
 
-const NUMBER_OF_DATABASES = 16
+const NumberOfDatabases = 16
 
 var (
-	db        *redis.Client
-	moduleLog = log.WithField("location", "redis")
-	once      sync.Once
+	db     *redis.Client
+	logger = logging.WithPackage("redis")
+	once   sync.Once
 )
 
 func CreateNewDB(dbNumber int) *redis.Client {
@@ -27,14 +28,14 @@ func CreateNewDB(dbNumber int) *redis.Client {
 	})
 	err := client.Ping().Err()
 	if err != nil {
-		moduleLog.WithFields(log.Fields{"conf": dbConf, "db": dbNumber}).Panicf("Cannot connect to redis: %s", err)
+		logger.WithFields(log.Fields{"conf": dbConf, "db": dbNumber}).Panicf("Cannot connect to redis: %s", err)
 	}
 	return client
 }
 
 func GetClient() *redis.Client {
 	if db == nil {
-		moduleLog.Panic("Redis has not initialized yet.")
+		logger.Panic("Redis has not initialized yet.")
 	}
 	return db
 }

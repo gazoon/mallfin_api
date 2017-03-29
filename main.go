@@ -11,11 +11,16 @@ import (
 	"runtime/debug"
 
 	"flag"
+
+	"mallfin_api/logging"
+	"mallfin_api/tracing"
+
 	log "github.com/Sirupsen/logrus"
 	"github.com/gazoon/httprouter"
-	"github.com/rs/cors"
 	"github.com/urfave/negroni"
 )
+
+var logger = logging.WithPackage("main")
 
 func recoveryMiddleware(w http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
 	defer func() {
@@ -32,18 +37,21 @@ func recoveryMiddleware(w http.ResponseWriter, r *http.Request, next http.Handle
 	}()
 	next(w, r)
 }
+
 func main() {
 	var configPath string
 	flag.StringVar(&configPath, "conf", "", "Path to json config file.")
 	flag.Parse()
+
 	config.Initialization(configPath)
+	logging.Initialization()
+
 	redisdb.Initialization()
 	defer redisdb.Close()
 
 	db.Initialization()
 	defer db.Close()
 
-	mainLogger := log.WithField("location", "main")
 	r := httprouter.New()
 	r.GET("/malls/", handlers.MallsList)
 	r.GET("/malls/:id/", handlers.MallDetails)
@@ -58,26 +66,23 @@ func main() {
 	r.GET("/cities/", handlers.CitiesList)
 
 	n := negroni.New()
-	c := cors.New(cors.Options{AllowedOrigins: []string{"*"}})
-	n.Use(c)
 	n.UseFunc(recoveryMiddleware)
-	if config.AccessLog() {
-		l := negroni.NewLogger()
-		l.ALogger = log.StandardLogger()
-		n.Use(l)
-	}
+	//c := cors.New(cors.Options{AllowedOrigins: []string{"*"}})
+	//n.Use(c)
+	n.UseFunc(tracing.Middleware)
+	n.UseFunc(logging.Middleware)
 	n.UseHandler(r)
 	if config.Debug() {
 		go func() {
 			err := http.ListenAndServe(":6060", nil)
 			if err != nil {
-				mainLogger.Panicf("Cannot run profiler server: %s", err)
+				logger.Panicf("Cannot run profiler server: %s", err)
 			}
 		}()
 	}
-	mainLogger.Infof("Starting server on port %d", config.Port())
+	logger.Infof("Starting server on port %d", config.Port())
 	err := http.ListenAndServe(fmt.Sprintf(":%d", config.Port()), n)
 	if err != nil {
-		mainLogger.Panicf("Cannot run server: %s", err)
+		logger.Panicf("Cannot run server: %s", err)
 	}
 }

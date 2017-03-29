@@ -71,11 +71,11 @@ func mallOrderBy(sorting models.Sorting) *OrderBy {
 	}
 	var column string
 	switch sorting.Key() {
-	case models.ID_SORT_KEY:
+	case models.IDSortKey:
 		column = "m.mall_id"
-	case models.NAME_SORT_KEY:
+	case models.NameSortKey:
 		column = "m.mall_name"
-	case models.SHOPS_COUNT_SORT_KEY:
+	case models.ShopsCountSortKey:
 		column = "m.shops_count"
 	default:
 		panic(errors.Errorf("Unexpected sorting key %s for mall order by", sorting.Key()))
@@ -89,13 +89,13 @@ func shopOrderBy(sorting models.Sorting) *OrderBy {
 	}
 	var column string
 	switch sorting.Key() {
-	case models.ID_SORT_KEY:
+	case models.IDSortKey:
 		column = "s.shop_id"
-	case models.NAME_SORT_KEY:
+	case models.NameSortKey:
 		column = "s.shop_name"
-	case models.MALLS_COUNT_SORT_KEY:
+	case models.MallsCountSortKey:
 		column = "s.malls_count"
-	case models.SCORE_SORT_KEY:
+	case models.ScoreSortKey:
 		column = "s.score"
 	default:
 		panic(errors.Errorf("Unexpected sorting key %s for shop order by", sorting.Key()))
@@ -109,11 +109,11 @@ func categoryOrderBy(sorting models.Sorting) *OrderBy {
 	}
 	var column string
 	switch sorting.Key() {
-	case models.ID_SORT_KEY:
+	case models.IDSortKey:
 		column = "c.category_id"
-	case models.NAME_SORT_KEY:
+	case models.NameSortKey:
 		column = "c.category_name"
-	case models.SHOPS_COUNT_SORT_KEY:
+	case models.ShopsCountSortKey:
 		column = "c.shops_count"
 	default:
 		panic(errors.Errorf("Unexpected sorting key %s for category order by", sorting.Key()))
@@ -127,9 +127,9 @@ func cityOrderBy(sorting models.Sorting) *OrderBy {
 	}
 	var column string
 	switch sorting.Key() {
-	case models.ID_SORT_KEY:
+	case models.IDSortKey:
 		column = "c.city_id"
-	case models.NAME_SORT_KEY:
+	case models.NameSortKey:
 		column = "c.city_name"
 	default:
 		panic(errors.Errorf("Unexpected sorting key %s for city order by", sorting.Key()))
@@ -143,13 +143,13 @@ func searchOrderBy(sorting models.Sorting) *OrderBy {
 	}
 	var column string
 	switch sorting.Key() {
-	case models.MALL_ID_SORT_KEY:
+	case models.MallIDSortKey:
 		column = "m.mall_id"
-	case models.MALL_NAME_SORT_KEY:
+	case models.MallNameSortKey:
 		column = "m.mall_name"
-	case models.SHOPS_COUNT_SORT_KEY:
+	case models.ShopsCountSortKey:
 		column = "m.shops_count"
-	case models.DISTANCE_SORT_KEY:
+	case models.DistanceSortKey:
 		column = "distance"
 	default:
 		panic(errors.Errorf("Unexpected sorting key %s for search order by", sorting.Key()))

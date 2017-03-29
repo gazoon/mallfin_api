@@ -177,8 +177,8 @@ type PaginationResponse struct {
 }
 
 func getShops() []int {
-	const SHOPS_COUNT = 10
-	requestUrl := fmt.Sprintf("%s://%s:%d/shops/?city=%d&sort=-malls_count&limit=%d", protocol, host, port, cityID, SHOPS_COUNT)
+	const shopsCount = 10
+	requestUrl := fmt.Sprintf("%s://%s:%d/shops/?city=%d&sort=-malls_count&limit=%d", protocol, host, port, cityID, shopsCount)
 	locLog := log.WithFields(log.Fields{"url": requestUrl, "location": "get shops"})
 	resp, err := http.Get(requestUrl)
 	if err != nil {
@@ -198,14 +198,14 @@ func getShops() []int {
 	for _, result := range body.Data.Results {
 		shopIDs = append(shopIDs, result.ID)
 	}
-	if len(shopIDs) != SHOPS_COUNT {
-		locLog.WithFields(log.Fields{"expect": SHOPS_COUNT, "actual": len(shopIDs)}).Panicf("number of shops does not match")
+	if len(shopIDs) != shopsCount {
+		locLog.WithFields(log.Fields{"expect": shopsCount, "actual": len(shopIDs)}).Panicf("number of shops does not match")
 	}
 	return shopIDs
 }
 func getMalls() []int {
-	const MALLS_COUNT = 10
-	requestUrl := fmt.Sprintf("%s://%s:%d/malls/?city=%d&sort=-shops_count&limit=%d", protocol, host, port, cityID, MALLS_COUNT)
+	const mallsCount = 10
+	requestUrl := fmt.Sprintf("%s://%s:%d/malls/?city=%d&sort=-shops_count&limit=%d", protocol, host, port, cityID, mallsCount)
 	locLog := log.WithFields(log.Fields{"url": requestUrl, "location": "get malls"})
 	resp, err := http.Get(requestUrl)
 	if err != nil {
@@ -225,8 +225,8 @@ func getMalls() []int {
 	for _, result := range body.Data.Results {
 		mallIDs = append(mallIDs, result.ID)
 	}
-	if len(mallIDs) != MALLS_COUNT {
-		locLog.WithFields(log.Fields{"expect": MALLS_COUNT, "actual": len(mallIDs)}).Panicf("number of malls does not match")
+	if len(mallIDs) != mallsCount {
+		locLog.WithFields(log.Fields{"expect": mallsCount, "actual": len(mallIDs)}).Panicf("number of malls does not match")
 	}
 	return mallIDs
 }
