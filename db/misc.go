@@ -15,29 +15,6 @@ func (bq baseQuery) withColumns(columns string) string {
 	return strings.Replace(string(bq), "{columns}", columns, 1)
 }
 
-func totalCountFromResults(resultsLen int, limit, offset *int) (int, bool) {
-	if (limit == nil || *limit == 0) && (offset == nil || *offset == 0 || resultsLen != 0) {
-		totalCount := resultsLen
-		if offset != nil {
-			totalCount += *offset
-		}
-		return totalCount, true
-	}
-	return 0, false
-}
-
-func countQuery(queryName, query string, args ...interface{}) (int, error) {
-	var row struct {
-		Count int
-	}
-	client := GetClient()
-	_, err := client.QueryOne(&row, query, args...)
-	if err != nil {
-		return 0, errors.WithMessage(err, queryName)
-	}
-	return row.Count, nil
-}
-
 type OrderBy struct {
 	Column  string
 	Reverse bool

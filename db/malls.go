@@ -76,13 +76,10 @@ func GetMallByLocation(location *models.Location) (*models.Mall, error) {
 	return mall, nil
 }
 
-func GetMalls(cityID int, sorting models.Sorting, limit, offset *int) ([]*models.Mall, int, error) {
-	var malls []*models.Mall
-	var totalCount int
-	var err error
+func GetMalls(cityID int, sorting models.Sorting, limit, offset *int) ([]*models.Mall, error) {
 	orderBy := mallOrderBy(sorting)
 	queryName := utils.CurrentFuncName()
-	malls, err = mallsQuery(queryName, orderBy.CompileBaseQuery(`
+	malls, err := mallsQuery(queryName, orderBy.CompileBaseQuery(`
 	SELECT {columns}
 	FROM mall m
 	WHERE m.city_id = ?2
@@ -91,29 +88,15 @@ func GetMalls(cityID int, sorting models.Sorting, limit, offset *int) ([]*models
 	OFFSET ?1
 	`), limit, offset, cityID)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
-	var ok bool
-	if totalCount, ok = totalCountFromResults(len(malls), limit, offset); !ok {
-		totalCount, err = countQuery(queryName, `
-		SELECT count(*)
-		FROM mall m
-		WHERE m.city_id = ?0
-		`, cityID)
-		if err != nil {
-			return nil, 0, err
-		}
-	}
-	return malls, totalCount, nil
+	return malls, nil
 }
 
-func GetMallsWithoutCity(sorting models.Sorting, limit, offset *int) ([]*models.Mall, int, error) {
-	var malls []*models.Mall
-	var totalCount int
-	var err error
+func GetMallsWithoutCity(sorting models.Sorting, limit, offset *int) ([]*models.Mall, error) {
 	orderBy := mallOrderBy(sorting)
 	queryName := utils.CurrentFuncName()
-	malls, err = mallsQuery(queryName, orderBy.CompileBaseQuery(`
+	malls, err := mallsQuery(queryName, orderBy.CompileBaseQuery(`
 	SELECT {columns}
 	FROM mall m
 	ORDER BY {order}
@@ -121,24 +104,14 @@ func GetMallsWithoutCity(sorting models.Sorting, limit, offset *int) ([]*models.
 	OFFSET ?1
 	`), limit, offset)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
-	var ok bool
-	if totalCount, ok = totalCountFromResults(len(malls), limit, offset); !ok {
-		totalCount, err = countQuery(queryName, `
-		SELECT count(*)
-		FROM mall m
-		`)
-		if err != nil {
-			return nil, 0, err
-		}
-	}
-	return malls, totalCount, nil
+	return malls, nil
 }
 
-func GetMallsByIDs(mallIDs []int) ([]*models.Mall, int, error) {
+func GetMallsByIDs(mallIDs []int) ([]*models.Mall, error) {
 	if len(mallIDs) == 0 {
-		return nil, 0, nil
+		return nil, nil
 	}
 	mallIDsArray := pg.Array(mallIDs)
 	queryName := utils.CurrentFuncName()
@@ -148,13 +121,12 @@ func GetMallsByIDs(mallIDs []int) ([]*models.Mall, int, error) {
 	WHERE m.mall_id = ANY(?0)
 	`), mallIDsArray)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
-	totalCount := len(malls)
-	return malls, totalCount, nil
+	return malls, nil
 }
 
-func GetMallsBySubwayStation(subwayStationID int, sorting models.Sorting, limit, offset *int) ([]*models.Mall, int, error) {
+func GetMallsBySubwayStation(subwayStationID int, sorting models.Sorting, limit, offset *int) ([]*models.Mall, error) {
 	orderBy := mallOrderBy(sorting)
 	queryName := utils.CurrentFuncName()
 	malls, err := mallsQuery(queryName, orderBy.CompileBaseQuery(`
@@ -167,30 +139,15 @@ func GetMallsBySubwayStation(subwayStationID int, sorting models.Sorting, limit,
 	OFFSET ?1
 	`), limit, offset, subwayStationID)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
-	totalCount, ok := totalCountFromResults(len(malls), limit, offset)
-	if !ok {
-		totalCount, err = countQuery(queryName, `
-		SELECT count(*)
-		FROM mall m
-		  LEFT JOIN subway_station ss ON m.subway_station_id = ss.station_id
-		WHERE ss.station_id = ?0
-		`, subwayStationID)
-		if err != nil {
-			return nil, 0, err
-		}
-	}
-	return malls, totalCount, nil
+	return malls, nil
 }
 
-func GetMallsByShop(shopID int, cityID int, sorting models.Sorting, limit, offset *int) ([]*models.Mall, int, error) {
-	var malls []*models.Mall
-	var totalCount int
-	var err error
+func GetMallsByShop(shopID, cityID int, sorting models.Sorting, limit, offset *int) ([]*models.Mall, error) {
 	orderBy := mallOrderBy(sorting)
 	queryName := utils.CurrentFuncName()
-	malls, err = mallsQuery(queryName, orderBy.CompileBaseQuery(`
+	malls, err := mallsQuery(queryName, orderBy.CompileBaseQuery(`
 	SELECT {columns}
 	FROM mall m
 	  JOIN mall_shop ms ON m.mall_id = ms.mall_id
@@ -200,30 +157,15 @@ func GetMallsByShop(shopID int, cityID int, sorting models.Sorting, limit, offse
 	OFFSET ?1
 	`), limit, offset, shopID, cityID)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
-	var ok bool
-	if totalCount, ok = totalCountFromResults(len(malls), limit, offset); !ok {
-		totalCount, err = countQuery(queryName, `
-		SELECT count(*)
-		FROM mall m
-		  JOIN mall_shop ms ON m.mall_id = ms.mall_id
-		WHERE ms.shop_id = ?0 AND m.city_id = ?1
-		`, shopID, cityID)
-		if err != nil {
-			return nil, 0, err
-		}
-	}
-	return malls, totalCount, nil
+	return malls, nil
 }
 
-func GetMallsByShopWithoutCity(shopID int, sorting models.Sorting, limit, offset *int) ([]*models.Mall, int, error) {
-	var malls []*models.Mall
-	var totalCount int
-	var err error
+func GetMallsByShopWithoutCity(shopID int, sorting models.Sorting, limit, offset *int) ([]*models.Mall, error) {
 	orderBy := mallOrderBy(sorting)
 	queryName := utils.CurrentFuncName()
-	malls, err = mallsQuery(queryName, orderBy.CompileBaseQuery(`
+	malls, err := mallsQuery(queryName, orderBy.CompileBaseQuery(`
 	SELECT {columns}
 	FROM mall m
 	  JOIN mall_shop ms ON m.mall_id = ms.mall_id
@@ -233,30 +175,15 @@ func GetMallsByShopWithoutCity(shopID int, sorting models.Sorting, limit, offset
 	OFFSET ?1
 	`), limit, offset, shopID)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
-	var ok bool
-	if totalCount, ok = totalCountFromResults(len(malls), limit, offset); !ok {
-		totalCount, err = countQuery(queryName, `
-		SELECT count(*)
-		FROM mall m
-		  JOIN mall_shop ms ON m.mall_id = ms.mall_id
-		WHERE ms.shop_id = ?0
-		`, shopID)
-		if err != nil {
-			return nil, 0, err
-		}
-	}
-	return malls, totalCount, nil
+	return malls, nil
 }
 
-func GetMallsByName(name string, cityID int, sorting models.Sorting, limit, offset *int) ([]*models.Mall, int, error) {
-	var malls []*models.Mall
-	var totalCount int
-	var err error
+func GetMallsByName(name string, cityID int, sorting models.Sorting, limit, offset *int) ([]*models.Mall, error) {
 	orderBy := mallOrderBy(sorting)
 	queryName := utils.CurrentFuncName()
-	malls, err = mallsQuery(queryName, orderBy.CompileBaseQuery(`
+	malls, err := mallsQuery(queryName, orderBy.CompileBaseQuery(`
 	SELECT {columns}
 	FROM mall m
 	  JOIN (SELECT DISTINCT ON (mall_id) mall_id
@@ -268,32 +195,15 @@ func GetMallsByName(name string, cityID int, sorting models.Sorting, limit, offs
 	OFFSET ?1
 	`), limit, offset, name, cityID)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
-	var ok bool
-	if totalCount, ok = totalCountFromResults(len(malls), limit, offset); !ok {
-		totalCount, err = countQuery(queryName, `
-		SELECT count(*)
-		FROM mall m
-		  JOIN (SELECT DISTINCT ON (mall_id) mall_id
-				FROM mall_name
-				WHERE mall_name ILIKE '%' || ?0 || '%') mn ON m.mall_id = mn.mall_id
-		WHERE m.city_id = ?1
-		`, name, cityID)
-		if err != nil {
-			return nil, 0, err
-		}
-	}
-	return malls, totalCount, nil
+	return malls, nil
 }
 
-func GetMallsByNameWithoutCity(name string, sorting models.Sorting, limit, offset *int) ([]*models.Mall, int, error) {
-	var malls []*models.Mall
-	var totalCount int
-	var err error
+func GetMallsByNameWithoutCity(name string, sorting models.Sorting, limit, offset *int) ([]*models.Mall, error) {
 	orderBy := mallOrderBy(sorting)
 	queryName := utils.CurrentFuncName()
-	malls, err = mallsQuery(queryName, orderBy.CompileBaseQuery(`
+	malls, err := mallsQuery(queryName, orderBy.CompileBaseQuery(`
 	SELECT {columns}
 	FROM mall m
 	  JOIN (SELECT DISTINCT ON (mall_id) mall_id
@@ -304,22 +214,9 @@ func GetMallsByNameWithoutCity(name string, sorting models.Sorting, limit, offse
 	OFFSET ?1
 	`), limit, offset, name)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
-	var ok bool
-	if totalCount, ok = totalCountFromResults(len(malls), limit, offset); !ok {
-		totalCount, err = countQuery(queryName, `
-		SELECT count(*)
-		FROM mall m
-		  JOIN (SELECT DISTINCT ON (mall_id) mall_id
-				FROM mall_name
-				WHERE mall_name ILIKE '%' || ?0 || '%') mn ON m.mall_id = mn.mall_id
-		`, name)
-		if err != nil {
-			return nil, 0, err
-		}
-	}
-	return malls, totalCount, nil
+	return malls, nil
 }
 
 func GetShopsInMalls(mallIDs, shopIDs []int) ([]*models.MallMatchedShops, error) {

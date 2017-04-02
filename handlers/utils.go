@@ -134,3 +134,14 @@ func paginateResponse(w http.ResponseWriter, r *http.Request, resultsList interf
 	}
 	response(w, data)
 }
+
+func totalCountFromResults(resultsLen int, limit, offset *int) (int, bool) {
+	if (limit == nil || *limit == 0) && (offset == nil || *offset == 0 || resultsLen != 0) {
+		totalCount := resultsLen
+		if offset != nil {
+			totalCount += *offset
+		}
+		return totalCount, true
+	}
+	return 0, false
+}

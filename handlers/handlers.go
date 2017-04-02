@@ -28,19 +28,67 @@ func MallsList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	}
 	var malls []*models.Mall
 	var totalCount int
-	var err error
 	if formData.SubwayStation != nil {
 		subwayStationID := *formData.SubwayStation
 		if !checkSubwayStation(w, subwayStationID) {
 			return
 		}
-		malls, totalCount, err = db.GetMallsBySubwayStation(subwayStationID, sorting, limit, offset)
+		var err error
+		malls, err = db.GetMallsBySubwayStation(subwayStationID, sorting, limit, offset)
+		if err != nil {
+			log.Error(err)
+			internalErrorResponse(w)
+			return
+		}
+		var ok bool
+		totalCount, ok = totalCountFromResults(len(malls), limit, offset)
+		if !ok {
+			totalCount, err = db.MallsBySubwayStationCount(subwayStationID)
+			if err != nil {
+				log.Error(err)
+				internalErrorResponse(w)
+				return
+			}
+		}
 	} else if formData.Query != nil {
 		name := *formData.Query
 		if cityID != nil {
-			malls, totalCount, err = db.GetMallsByName(name, *cityID, sorting, limit, offset)
+			userCity := *cityID
+			var err error
+			malls, err = db.GetMallsByName(name, userCity, sorting, limit, offset)
+			if err != nil {
+				log.Error(err)
+				internalErrorResponse(w)
+				return
+			}
+			var ok bool
+			totalCount, ok = totalCountFromResults(len(malls), limit, offset)
+			if !ok {
+				totalCount, err = db.MallsByNameCount(name, userCity)
+				if err != nil {
+					log.Error(err)
+					internalErrorResponse(w)
+					return
+				}
+			}
 		} else {
-			malls, totalCount, err = db.GetMallsByNameWithoutCity(name, sorting, limit, offset)
+			var err error
+			malls, err = db.GetMallsByNameWithoutCity(name, sorting, limit, offset)
+			if err != nil {
+				log.Error(err)
+				internalErrorResponse(w)
+				return
+			}
+			var ok bool
+			totalCount, ok = totalCountFromResults(len(malls), limit, offset)
+			if !ok {
+				totalCount, err = db.MallsByNameWithoutCityCount(name)
+				if err != nil {
+					log.Error(err)
+					internalErrorResponse(w)
+					return
+				}
+			}
 		}
 	} else if formData.Shop != nil {
 		shopID := *formData.Shop
@@ -48,21 +96,82 @@ func MallsList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 			return
 		}
 		if cityID != nil {
-			malls, totalCount, err = db.GetMallsByShop(shopID, *cityID, sorting, limit, offset)
+			userCity := *cityID
+			var err error
+			malls, err = db.GetMallsByShop(shopID, userCity, sorting, limit, offset)
+			if err != nil {
+				log.Error(err)
+				internalErrorResponse(w)
+				return
+			}
+			var ok bool
+			totalCount, ok = totalCountFromResults(len(malls), limit, offset)
+			if !ok {
+				totalCount, err = db.MallsByShopCount(shopID, userCity)
+				if err != nil {
+					log.Error(err)
+					internalErrorResponse(w)
+					return
+				}
+			}
 		} else {
-			malls, totalCount, err = db.GetMallsByShopWithoutCity(shopID, sorting, limit, offset)
+			var err error
+			malls, err = db.GetMallsByShopWithoutCity(shopID, sorting, limit, offset)
+			if err != nil {
+				log.Error(err)
+				internalErrorResponse(w)
+				return
+			}
+			var ok bool
+			totalCount, ok = totalCountFromResults(len(malls), limit, offset)
+			if !ok {
+				totalCount, err = db.MallsByShopWithoutCityCount(shopID)
+				if err != nil {
+					log.Error(err)
+					internalErrorResponse(w)
+					return
+				}
+			}
 		}
 	} else {
 		if cityID != nil {
-			malls, totalCount, err = db.GetMalls(*cityID, sorting, limit, offset)
+			userCity := *cityID
+			var err error
+			malls, err = db.GetMalls(userCity, sorting, limit, offset)
+			if err != nil {
+				log.Error(err)
+				internalErrorResponse(w)
+				return
+			}
+			var ok bool
+			totalCount, ok = totalCountFromResults(len(malls), limit, offset)
+			if !ok {
+				totalCount, err = db.MallsCount(userCity)
+				if err != nil {
+					log.Error(err)
+					internalErrorResponse(w)
+					return
+				}
+			}
 		} else {
-			malls, totalCount, err = db.GetMallsWithoutCity(sorting, limit, offset)
+			var err error
+			malls, err = db.GetMallsWithoutCity(sorting, limit, offset)
+			if err != nil {
+				log.Error(err)
+				internalErrorResponse(w)
+				return
+			}
+			var ok bool
+			totalCount, ok = totalCountFromResults(len(malls), limit, offset)
+			if !ok {
+				totalCount, err = db.MallsWithoutCityCount()
+				if err != nil {
+					log.Error(err)
+					internalErrorResponse(w)
+					return
+				}
+			}
 		}
-	}
-	if err != nil {
-		log.Error(err)
-		internalErrorResponse(w)
-		return
 	}
 	serialized := serializers.SerializeMalls(malls)
 	paginateResponse(w, r, serialized, totalCount, limit, offset)
@@ -104,19 +213,67 @@ func ShopsList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	}
 	var shops []*models.Shop
 	var totalCount int
-	var err error
 	if formData.Mall != nil {
 		mallID := *formData.Mall
 		if !checkMall(w, mallID) {
 			return
 		}
-		shops, totalCount, err = db.GetShopsByMall(mallID, sorting, limit, offset)
+		var err error
+		shops, err = db.GetShopsByMall(mallID, sorting, limit, offset)
+		if err != nil {
+			log.Error(err)
+			internalErrorResponse(w)
+			return
+		}
+		var ok bool
+		totalCount, ok = totalCountFromResults(len(shops), limit, offset)
+		if !ok {
+			totalCount, err = db.ShopsByMallCount(mallID)
+			if err != nil {
+				log.Error(err)
+				internalErrorResponse(w)
+				return
+			}
+		}
 	} else if formData.Query != nil {
 		name := *formData.Query
 		if cityID != nil {
-			shops, totalCount, err = db.GetShopsByName(name, *cityID, sorting, limit, offset)
+			userCity := *cityID
+			var err error
+			shops, err = db.GetShopsByName(name, userCity, sorting, limit, offset)
+			if err != nil {
+				log.Error(err)
+				internalErrorResponse(w)
+				return
+			}
+			var ok bool
+			totalCount, ok = totalCountFromResults(len(shops), limit, offset)
+			if !ok {
+				totalCount, err = db.ShopsByNameCount(name, userCity)
+				if err != nil {
+					log.Error(err)
+					internalErrorResponse(w)
+					return
+				}
+			}
 		} else {
-			shops, totalCount, err = db.GetShopsByNameWithoutCity(name, sorting, limit, offset)
+			var err error
+			shops, err = db.GetShopsByNameWithoutCity(name, sorting, limit, offset)
+			if err != nil {
+				log.Error(err)
+				internalErrorResponse(w)
+				return
+			}
+			var ok bool
+			totalCount, ok = totalCountFromResults(len(shops), limit, offset)
+			if !ok {
+				totalCount, err = db.ShopsByNameWithoutCityCount(name)
+				if err != nil {
+					log.Error(err)
+					internalErrorResponse(w)
+					return
+				}
+			}
 		}
 	} else if formData.Category != nil {
 		categoryID := *formData.Category
@@ -124,21 +281,82 @@ func ShopsList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 			return
 		}
 		if cityID != nil {
-			shops, totalCount, err = db.GetShopsByCategory(categoryID, *cityID, sorting, limit, offset)
+			userCity := *cityID
+			var err error
+			shops, err = db.GetShopsByCategory(categoryID, userCity, sorting, limit, offset)
+			if err != nil {
+				log.Error(err)
+				internalErrorResponse(w)
+				return
+			}
+			var ok bool
+			totalCount, ok = totalCountFromResults(len(shops), limit, offset)
+			if !ok {
+				totalCount, err = db.ShopsByCategoryCount(categoryID, userCity)
+				if err != nil {
+					log.Error(err)
+					internalErrorResponse(w)
+					return
+				}
+			}
 		} else {
-			shops, totalCount, err = db.GetShopsByCategoryWithoutCity(categoryID, sorting, limit, offset)
+			var err error
+			shops, err = db.GetShopsByCategoryWithoutCity(categoryID, sorting, limit, offset)
+			if err != nil {
+				log.Error(err)
+				internalErrorResponse(w)
+				return
+			}
+			var ok bool
+			totalCount, ok = totalCountFromResults(len(shops), limit, offset)
+			if !ok {
+				totalCount, err = db.ShopsByCategoryWithoutCityCount(categoryID)
+				if err != nil {
+					log.Error(err)
+					internalErrorResponse(w)
+					return
+				}
+			}
 		}
 	} else {
 		if cityID != nil {
-			shops, totalCount, err = db.GetShops(*cityID, sorting, limit, offset)
+			userCity := *cityID
+			var err error
+			shops, err = db.GetShops(userCity, sorting, limit, offset)
+			if err != nil {
+				log.Error(err)
+				internalErrorResponse(w)
+				return
+			}
+			var ok bool
+			totalCount, ok = totalCountFromResults(len(shops), limit, offset)
+			if !ok {
+				totalCount, err = db.ShopsCount(userCity)
+				if err != nil {
+					log.Error(err)
+					internalErrorResponse(w)
+					return
+				}
+			}
 		} else {
-			shops, totalCount, err = db.GetShopsWithoutCity(sorting, limit, offset)
+			var err error
+			shops, err = db.GetShopsWithoutCity(sorting, limit, offset)
+			if err != nil {
+				log.Error(err)
+				internalErrorResponse(w)
+				return
+			}
+			var ok bool
+			totalCount, ok = totalCountFromResults(len(shops), limit, offset)
+			if !ok {
+				totalCount, err = db.ShopsWithoutCityCount()
+				if err != nil {
+					log.Error(err)
+					internalErrorResponse(w)
+					return
+				}
+			}
 		}
-	}
-	if err != nil {
-		log.Error(err)
-		internalErrorResponse(w)
-		return
 	}
 	serialized := serializers.SerializeShops(shops)
 	paginateResponse(w, r, serialized, totalCount, limit, offset)
@@ -356,28 +574,72 @@ func Search(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	}
 	var searchResults []*models.SearchResult
 	var totalCount int
-	var err error
+	var userLocation *models.Location
 	if formData.LocationLat != nil && formData.LocationLon != nil {
-		userLocation := &models.Location{
+		userLocation = &models.Location{
 			Lat: *formData.LocationLat,
 			Lon: *formData.LocationLon,
 		}
-		if cityID != nil {
-			searchResults, totalCount, err = db.GetSearchResultsWithDistance(shopIDs, userLocation, *cityID, sorting, limit, offset)
+	}
+	if cityID != nil {
+		userCity := *cityID
+		if userLocation != nil {
+			var err error
+			searchResults, err = db.GetSearchResultsWithDistance(shopIDs, userLocation, userCity, sorting, limit, offset)
+			if err != nil {
+				log.Error(err)
+				internalErrorResponse(w)
+				return
+			}
 		} else {
-			searchResults, totalCount, err = db.GetSearchResultsWithDistanceWithoutCity(shopIDs, userLocation, sorting, limit, offset)
+			var err error
+			searchResults, err = db.GetSearchResults(shopIDs, userCity, sorting, limit, offset)
+			if err != nil {
+				log.Error(err)
+				internalErrorResponse(w)
+				return
+			}
+		}
+		var ok bool
+		totalCount, ok = totalCountFromResults(len(searchResults), limit, offset)
+		if !ok {
+			var err error
+			totalCount, err = db.SearchResultsCount(shopIDs, userCity)
+			if err != nil {
+				log.Error(err)
+				internalErrorResponse(w)
+				return
+			}
 		}
 	} else {
-		if cityID != nil {
-			searchResults, totalCount, err = db.GetSearchResults(shopIDs, *cityID, sorting, limit, offset)
+		if userLocation != nil {
+			var err error
+			searchResults, err = db.GetSearchResultsWithDistanceWithoutCity(shopIDs, userLocation, sorting, limit, offset)
+			if err != nil {
+				log.Error(err)
+				internalErrorResponse(w)
+				return
+			}
 		} else {
-			searchResults, totalCount, err = db.GetSearchResultsWithoutCity(shopIDs, sorting, limit, offset)
+			var err error
+			searchResults, err = db.GetSearchResultsWithoutCity(shopIDs, sorting, limit, offset)
+			if err != nil {
+				log.Error(err)
+				internalErrorResponse(w)
+				return
+			}
 		}
-	}
-	if err != nil {
-		log.Error(err)
-		internalErrorResponse(w)
-		return
+		var ok bool
+		totalCount, ok = totalCountFromResults(len(searchResults), limit, offset)
+		if !ok {
+			var err error
+			totalCount, err = db.SearchResultsWithoutCityCount(shopIDs)
+			if err != nil {
+				log.Error(err)
+				internalErrorResponse(w)
+				return
+			}
+		}
 	}
 	serialized := serializers.SerializeSearchResults(searchResults)
 	paginateResponse(w, r, serialized, totalCount, limit, offset)

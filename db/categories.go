@@ -39,7 +39,7 @@ func GetCategories(sorting models.Sorting) ([]*models.Category, error) {
 	return categories, nil
 }
 
-func GetCategoriesByIDs(categoryIDs []int) ([]*models.Category, int, error) {
+func GetCategoriesByIDs(categoryIDs []int) ([]*models.Category, error) {
 	categoryIDsArray := pg.Array(categoryIDs)
 	queryName := utils.CurrentFuncName()
 	categories, err := categoriesQuery(queryName, baseQuery(`
@@ -48,10 +48,9 @@ func GetCategoriesByIDs(categoryIDs []int) ([]*models.Category, int, error) {
 	WHERE c.category_id = ANY (?0)
 	`), categoryIDsArray)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
-	totalCount := len(categories)
-	return categories, totalCount, nil
+	return categories, nil
 }
 
 func GetCategoriesByShop(shopID int, sorting models.Sorting) ([]*models.Category, error) {

@@ -9,17 +9,14 @@ import (
 	"github.com/pkg/errors"
 )
 
-func GetSearchResults(shopIDs []int, cityID int, sorting models.Sorting, limit, offset *int) ([]*models.SearchResult, int, error) {
+func GetSearchResults(shopIDs []int, cityID int, sorting models.Sorting, limit, offset *int) ([]*models.SearchResult, error) {
 	if len(shopIDs) == 0 {
-		return nil, 0, nil
+		return nil, nil
 	}
-	var searchResults []*models.SearchResult
-	var totalCount int
-	var err error
 	orderBy := searchOrderBy(sorting)
 	shopIDsArray := pg.Array(shopIDs)
 	queryName := utils.CurrentFuncName()
-	searchResults, err = searchResultsQuery(queryName, orderBy.CompileBaseQuery(`
+	searchResults, err := searchResultsQuery(queryName, orderBy.CompileBaseQuery(`
 	SELECT {columns}
 	  NULL                  distance
 	FROM mall m
@@ -31,34 +28,19 @@ func GetSearchResults(shopIDs []int, cityID int, sorting models.Sorting, limit, 
 	OFFSET ?1
 	`), limit, offset, shopIDsArray, cityID)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
-	var ok bool
-	if totalCount, ok = totalCountFromResults(len(searchResults), limit, offset); !ok {
-		totalCount, err = countQuery(queryName, `
-		SELECT count(DISTINCT m.mall_id)
-		FROM mall m
-		  JOIN mall_shop ms ON m.mall_id = ms.mall_id
-		WHERE ms.shop_id = ANY (?0) AND m.city_id = ?1
-		`, shopIDsArray, cityID)
-		if err != nil {
-			return nil, 0, err
-		}
-	}
-	return searchResults, totalCount, nil
+	return searchResults, nil
 }
 
-func GetSearchResultsWithoutCity(shopIDs []int, sorting models.Sorting, limit, offset *int) ([]*models.SearchResult, int, error) {
+func GetSearchResultsWithoutCity(shopIDs []int, sorting models.Sorting, limit, offset *int) ([]*models.SearchResult, error) {
 	if len(shopIDs) == 0 {
-		return nil, 0, nil
+		return nil, nil
 	}
-	var searchResults []*models.SearchResult
-	var totalCount int
-	var err error
 	orderBy := searchOrderBy(sorting)
 	shopIDsArray := pg.Array(shopIDs)
 	queryName := utils.CurrentFuncName()
-	searchResults, err = searchResultsQuery(queryName, orderBy.CompileBaseQuery(`
+	searchResults, err := searchResultsQuery(queryName, orderBy.CompileBaseQuery(`
 	SELECT {columns}
 	  NULL                  distance
 	FROM mall m
@@ -70,34 +52,19 @@ func GetSearchResultsWithoutCity(shopIDs []int, sorting models.Sorting, limit, o
 	OFFSET ?1
 	`), limit, offset, shopIDsArray)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
-	var ok bool
-	if totalCount, ok = totalCountFromResults(len(searchResults), limit, offset); !ok {
-		totalCount, err = countQuery(queryName, `
-		SELECT count(DISTINCT m.mall_id)
-		FROM mall m
-		  JOIN mall_shop ms ON m.mall_id = ms.mall_id
-		WHERE ms.shop_id = ANY (?0)
-		`, shopIDsArray)
-		if err != nil {
-			return nil, 0, err
-		}
-	}
-	return searchResults, totalCount, nil
+	return searchResults, nil
 }
 
-func GetSearchResultsWithDistance(shopIDs []int, location *models.Location, cityID int, sorting models.Sorting, limit, offset *int) ([]*models.SearchResult, int, error) {
+func GetSearchResultsWithDistance(shopIDs []int, location *models.Location, cityID int, sorting models.Sorting, limit, offset *int) ([]*models.SearchResult, error) {
 	if len(shopIDs) == 0 {
-		return nil, 0, nil
+		return nil, nil
 	}
-	var searchResults []*models.SearchResult
-	var totalCount int
-	var err error
 	orderBy := searchOrderBy(sorting)
 	shopIDsArray := pg.Array(shopIDs)
 	queryName := utils.CurrentFuncName()
-	searchResults, err = searchResultsQuery(queryName, orderBy.CompileBaseQuery(`
+	searchResults, err := searchResultsQuery(queryName, orderBy.CompileBaseQuery(`
 	SELECT {columns}
 	  st_distance(
 		  st_transform(m.mall_location, 26986),
@@ -112,34 +79,19 @@ func GetSearchResultsWithDistance(shopIDs []int, location *models.Location, city
 	OFFSET ?1
 	`), limit, offset, shopIDsArray, location.Lon, location.Lat, cityID)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
-	var ok bool
-	if totalCount, ok = totalCountFromResults(len(searchResults), limit, offset); !ok {
-		totalCount, err = countQuery(queryName, `
-		SELECT count(DISTINCT m.mall_id)
-		FROM mall m
-		  JOIN mall_shop ms ON m.mall_id = ms.mall_id
-		WHERE ms.shop_id = ANY (?0) AND m.city_id = ?1
-		`, shopIDsArray, cityID)
-		if err != nil {
-			return nil, 0, err
-		}
-	}
-	return searchResults, totalCount, nil
+	return searchResults, nil
 }
 
-func GetSearchResultsWithDistanceWithoutCity(shopIDs []int, location *models.Location, sorting models.Sorting, limit, offset *int) ([]*models.SearchResult, int, error) {
+func GetSearchResultsWithDistanceWithoutCity(shopIDs []int, location *models.Location, sorting models.Sorting, limit, offset *int) ([]*models.SearchResult, error) {
 	if len(shopIDs) == 0 {
-		return nil, 0, nil
+		return nil, nil
 	}
-	var searchResults []*models.SearchResult
-	var totalCount int
-	var err error
 	orderBy := searchOrderBy(sorting)
 	shopIDsArray := pg.Array(shopIDs)
 	queryName := utils.CurrentFuncName()
-	searchResults, err = searchResultsQuery(queryName, orderBy.CompileBaseQuery(`
+	searchResults, err := searchResultsQuery(queryName, orderBy.CompileBaseQuery(`
 	SELECT {columns}
 	  st_distance(
 		  st_transform(m.mall_location, 26986),
@@ -154,21 +106,9 @@ func GetSearchResultsWithDistanceWithoutCity(shopIDs []int, location *models.Loc
 	OFFSET ?1
 	`), limit, offset, shopIDsArray, location.Lon, location.Lat)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
-	var ok bool
-	if totalCount, ok = totalCountFromResults(len(searchResults), limit, offset); !ok {
-		totalCount, err = countQuery(queryName, `
-		SELECT count(DISTINCT m.mall_id)
-		FROM mall m
-		  JOIN mall_shop ms ON m.mall_id = ms.mall_id
-		WHERE ms.shop_id = ANY (?0)
-		`, shopIDsArray)
-		if err != nil {
-			return nil, 0, err
-		}
-	}
-	return searchResults, totalCount, nil
+	return searchResults, nil
 }
 
 func searchResultsQuery(queryName string, queryBasis baseQuery, args ...interface{}) ([]*models.SearchResult, error) {
