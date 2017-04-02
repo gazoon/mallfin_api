@@ -8,7 +8,7 @@ import (
 	pg "gopkg.in/pg.v5"
 )
 
-func GetCategoryDetails(categoryID int, cityID *int) (*models.Category, error) {
+func GetCategoryDetails(categoryID int) (*models.Category, error) {
 	queryName := utils.CurrentFuncName()
 	categories, err := categoriesQuery(queryName, baseQuery(`
 	SELECT {columns}
@@ -25,7 +25,7 @@ func GetCategoryDetails(categoryID int, cityID *int) (*models.Category, error) {
 	return categories[0], nil
 }
 
-func GetCategories(cityID *int, sorting models.Sorting) ([]*models.Category, error) {
+func GetCategories(sorting models.Sorting) ([]*models.Category, error) {
 	orderBy := categoryOrderBy(sorting)
 	queryName := utils.CurrentFuncName()
 	categories, err := categoriesQuery(queryName, orderBy.CompileBaseQuery(`
@@ -39,7 +39,7 @@ func GetCategories(cityID *int, sorting models.Sorting) ([]*models.Category, err
 	return categories, nil
 }
 
-func GetCategoriesByIDs(categoryIDs []int, cityID *int) ([]*models.Category, int, error) {
+func GetCategoriesByIDs(categoryIDs []int) ([]*models.Category, int, error) {
 	categoryIDsArray := pg.Array(categoryIDs)
 	queryName := utils.CurrentFuncName()
 	categories, err := categoriesQuery(queryName, baseQuery(`
@@ -54,7 +54,7 @@ func GetCategoriesByIDs(categoryIDs []int, cityID *int) ([]*models.Category, int
 	return categories, totalCount, nil
 }
 
-func GetCategoriesByShop(shopID int, cityID *int, sorting models.Sorting) ([]*models.Category, error) {
+func GetCategoriesByShop(shopID int, sorting models.Sorting) ([]*models.Category, error) {
 	orderBy := categoryOrderBy(sorting)
 	queryName := utils.CurrentFuncName()
 	categories, err := categoriesQuery(queryName, orderBy.CompileBaseQuery(`

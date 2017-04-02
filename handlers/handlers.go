@@ -37,15 +37,27 @@ func MallsList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		malls, totalCount, err = db.GetMallsBySubwayStation(subwayStationID, sorting, limit, offset)
 	} else if formData.Query != nil {
 		name := *formData.Query
-		malls, totalCount, err = db.GetMallsByName(name, cityID, sorting, limit, offset)
+		if cityID != nil {
+			malls, totalCount, err = db.GetMallsByName(name, *cityID, sorting, limit, offset)
+		} else {
+			malls, totalCount, err = db.GetMallsByNameWithoutCity(name, sorting, limit, offset)
+		}
 	} else if formData.Shop != nil {
 		shopID := *formData.Shop
 		if !checkShop(w, shopID) {
 			return
 		}
-		malls, totalCount, err = db.GetMallsByShop(shopID, cityID, sorting, limit, offset)
+		if cityID != nil {
+			malls, totalCount, err = db.GetMallsByShop(shopID, *cityID, sorting, limit, offset)
+		} else {
+			malls, totalCount, err = db.GetMallsByShopWithoutCity(shopID, sorting, limit, offset)
+		}
 	} else {
-		malls, totalCount, err = db.GetMalls(cityID, sorting, limit, offset)
+		if cityID != nil {
+			malls, totalCount, err = db.GetMalls(*cityID, sorting, limit, offset)
+		} else {
+			malls, totalCount, err = db.GetMallsWithoutCity(sorting, limit, offset)
+		}
 	}
 	if err != nil {
 		log.Error(err)
@@ -101,15 +113,27 @@ func ShopsList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		shops, totalCount, err = db.GetShopsByMall(mallID, sorting, limit, offset)
 	} else if formData.Query != nil {
 		name := *formData.Query
-		shops, totalCount, err = db.GetShopsByName(name, cityID, sorting, limit, offset)
+		if cityID != nil {
+			shops, totalCount, err = db.GetShopsByName(name, *cityID, sorting, limit, offset)
+		} else {
+			shops, totalCount, err = db.GetShopsByNameWithoutCity(name, sorting, limit, offset)
+		}
 	} else if formData.Category != nil {
 		categoryID := *formData.Category
 		if !checkCategory(w, categoryID) {
 			return
 		}
-		shops, totalCount, err = db.GetShopsByCategory(categoryID, cityID, sorting, limit, offset)
+		if cityID != nil {
+			shops, totalCount, err = db.GetShopsByCategory(categoryID, *cityID, sorting, limit, offset)
+		} else {
+			shops, totalCount, err = db.GetShopsByCategoryWithoutCity(categoryID, sorting, limit, offset)
+		}
 	} else {
-		shops, totalCount, err = db.GetShops(cityID, sorting, limit, offset)
+		if cityID != nil {
+			shops, totalCount, err = db.GetShops(*cityID, sorting, limit, offset)
+		} else {
+			shops, totalCount, err = db.GetShopsWithoutCity(sorting, limit, offset)
+		}
 	}
 	if err != nil {
 		log.Error(err)
@@ -136,14 +160,16 @@ func ShopDetails(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	if !checkCity(w, cityID) {
 		return
 	}
-	var userLocation *models.Location = nil
+	var shop *models.Shop
 	if formData.LocationLat != nil && formData.LocationLon != nil {
-		userLocation = &models.Location{
+		userLocation := &models.Location{
 			Lat: *formData.LocationLat,
 			Lon: *formData.LocationLon,
 		}
+		shop, err = db.GetShopDetailsWithLocation(shopID, userLocation)
+	} else {
+		shop, err = db.GetShopDetails(shopID)
 	}
-	shop, err := db.GetShopDetails(shopID, userLocation, cityID)
 	if err != nil {
 		log.Error(err)
 		internalErrorResponse(w)
@@ -176,9 +202,9 @@ func CategoriesList(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 		if !checkShop(w, shopID) {
 			return
 		}
-		categories, err = db.GetCategoriesByShop(shopID, cityID, sorting)
+		categories, err = db.GetCategoriesByShop(shopID, sorting)
 	} else {
-		categories, err = db.GetCategories(cityID, sorting)
+		categories, err = db.GetCategories(sorting)
 	}
 	if err != nil {
 		log.Error(err)
@@ -205,7 +231,7 @@ func CategoryDetails(w http.ResponseWriter, r *http.Request, ps httprouter.Param
 	if !checkCity(w, cityID) {
 		return
 	}
-	category, err := db.GetCategoryDetails(categoryID, cityID)
+	category, err := db.GetCategoryDetails(categoryID)
 	if err != nil {
 		log.Error(err)
 		internalErrorResponse(w)
@@ -336,9 +362,17 @@ func Search(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 			Lat: *formData.LocationLat,
 			Lon: *formData.LocationLon,
 		}
-		searchResults, totalCount, err = db.GetSearchResultsWithDistance(shopIDs, userLocation, cityID, sorting, limit, offset)
+		if cityID != nil {
+			searchResults, totalCount, err = db.GetSearchResultsWithDistance(shopIDs, userLocation, *cityID, sorting, limit, offset)
+		} else {
+			searchResults, totalCount, err = db.GetSearchResultsWithDistanceWithoutCity(shopIDs, userLocation, sorting, limit, offset)
+		}
 	} else {
-		searchResults, totalCount, err = db.GetSearchResults(shopIDs, cityID, sorting, limit, offset)
+		if cityID != nil {
+			searchResults, totalCount, err = db.GetSearchResults(shopIDs, *cityID, sorting, limit, offset)
+		} else {
+			searchResults, totalCount, err = db.GetSearchResultsWithoutCity(shopIDs, sorting, limit, offset)
+		}
 	}
 	if err != nil {
 		log.Error(err)
