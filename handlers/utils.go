@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	log "github.com/Sirupsen/logrus"
+	"mallfin_api/db"
 )
 
 const (
@@ -60,9 +61,15 @@ func errorResponse(w http.ResponseWriter, errorCode, details string, status int)
 	resp := ErrorResponse{Error: &errObj}
 	writeJSON(w, resp, status)
 }
+
+func notFoundResponse(w http.ResponseWriter, errorCode string) {
+	errorResponse(w, errorCode, errorCode, http.StatusNotFound)
+}
+
 func internalErrorResponse(w http.ResponseWriter) {
 	errorResponse(w, INTERNAL_ERROR, "An internal server error occurred, please try again later.", http.StatusInternalServerError)
 }
+
 func response(w http.ResponseWriter, data interface{}) {
 	resp := SuccessResponse{Data: data}
 	writeJSON(w, resp, http.StatusOK)
@@ -144,4 +151,76 @@ func totalCountFromResults(resultsLen int, limit, offset *int) (int, bool) {
 		return totalCount, true
 	}
 	return 0, false
+}
+
+func checkCity(w http.ResponseWriter, cityID *int, logPrefix string) bool {
+	if cityID != nil {
+		exists, err := db.IsCityExists(*cityID)
+		if err != nil {
+			log.Errorf("%s: %s", logPrefix, err)
+			internalErrorResponse(w)
+			return false
+		}
+		if !exists {
+			notFoundResponse(w, CITY_NOT_FOUND)
+			return false
+		}
+	}
+	return true
+}
+
+func checkShop(w http.ResponseWriter, shopID int, logPrefix string) bool {
+	exists, err := db.IsShopExists(shopID)
+	if err != nil {
+		log.Errorf("%s: %s", logPrefix, err)
+		internalErrorResponse(w)
+		return false
+	}
+	if !exists {
+		notFoundResponse(w, SHOP_NOT_FOUND)
+		return false
+	}
+	return true
+}
+
+func checkSubwayStation(w http.ResponseWriter, stationID int, logPrefix string) bool {
+	exists, err := db.IsSubwayStationExists(stationID)
+	if err != nil {
+		log.Errorf("%s: %s", logPrefix, err)
+		internalErrorResponse(w)
+		return false
+	}
+	if !exists {
+		notFoundResponse(w, SUBWAY_STATION_NOT_FOUND)
+		return false
+	}
+	return true
+}
+
+func checkCategory(w http.ResponseWriter, categoryID int, logPrefix string) bool {
+	exists, err := db.IsCategoryExists(categoryID)
+	if err != nil {
+		log.Errorf("%s: %s", logPrefix, err)
+		internalErrorResponse(w)
+		return false
+	}
+	if !exists {
+		notFoundResponse(w, CATEGORY_NOT_FOUND)
+		return false
+	}
+	return true
+}
+
+func checkMall(w http.ResponseWriter, mallID int, logPrefix string) bool {
+	exists, err := db.IsMallExists(mallID)
+	if err != nil {
+		log.Errorf("%s: %s", logPrefix, err)
+		internalErrorResponse(w)
+		return false
+	}
+	if !exists {
+		notFoundResponse(w, MALL_NOT_FOUND)
+		return false
+	}
+	return true
 }
