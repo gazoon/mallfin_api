@@ -5,11 +5,8 @@ import (
 	"strings"
 
 	"context"
-	"mallfin_api/tracing"
-	"net/http"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/urfave/negroni"
 )
 
 type ContextKey int
@@ -71,24 +68,4 @@ func Initialization() {
 	}}
 	log.SetLevel(logLevel)
 	log.SetFormatter(formatter)
-}
-
-func Middleware(w http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
-	ctx := r.Context()
-	requestID := tracing.FromContext(ctx)
-	logger := log.WithFields(log.Fields{RequestIDField: requestID})
-	ctx = NewContext(ctx, logger)
-
-	logger = logger.WithFields(log.Fields{"path": r.URL.Path, "method": r.Method})
-
-	userIP := r.Header.Get("X-Real-IP")
-	if userIP == "" {
-		userIP = r.RemoteAddr
-	}
-	logger.WithFields(log.Fields{"user_ip": userIP, "user_agent": r.UserAgent()}).Debug("Request started")
-
-	next(w, r.WithContext(ctx))
-
-	res := w.(negroni.ResponseWriter)
-	logger.WithField("status", res.Status()).Info("Request finished")
 }

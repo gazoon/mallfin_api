@@ -35,7 +35,7 @@ func CreateNewDB(dbNumber int) *redis.Client {
 
 func GetClient() *redis.Client {
 	if db == nil {
-		logger.Panic("Redis has not initialized yet.")
+		panic("Redis has not initialized yet.")
 	}
 	return db
 }

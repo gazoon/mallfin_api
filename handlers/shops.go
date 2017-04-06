@@ -7,19 +7,22 @@ import (
 	"mallfin_api/models"
 	"mallfin_api/serializers"
 
-	log "github.com/Sirupsen/logrus"
+	"mallfin_api/logging"
+
 	"github.com/gazoon/binding"
 	"github.com/gazoon/httprouter"
 )
 
 func shopsByMall(w http.ResponseWriter, r *http.Request, formData *shopsListForm) {
+	ctx := r.Context()
+	logger := logging.FromContext(ctx)
 	mallID := *formData.Mall
-	if !checkMall(w, mallID, "log prefix") {
+	if !checkMall(ctx, w, mallID, "log prefix") {
 		return
 	}
 	shops, err := db.GetShopsByMall(mallID, formData.Sort, formData.Limit, formData.Offset)
 	if err != nil {
-		log.Error(err)
+		logger.Error(err)
 		internalErrorResponse(w)
 		return
 	}
@@ -27,16 +30,18 @@ func shopsByMall(w http.ResponseWriter, r *http.Request, formData *shopsListForm
 	if !ok {
 		totalCount, err = db.ShopsByMallCount(mallID)
 		if err != nil {
-			log.Error(err)
+			logger.Error(err)
 			internalErrorResponse(w)
 			return
 		}
 	}
 	serialized := serializers.SerializeShops(shops)
-	paginateResponse(w, r, serialized, totalCount, formData.Limit, formData.Offset)
+	paginateResponse(ctx, w, r, serialized, totalCount, formData.Limit, formData.Offset)
 }
 
 func shopsByQuery(w http.ResponseWriter, r *http.Request, formData *shopsListForm) {
+	ctx := r.Context()
+	logger := logging.FromContext(ctx)
 	name := *formData.Query
 	var shops []*models.Shop
 	var totalCount int
@@ -45,7 +50,7 @@ func shopsByQuery(w http.ResponseWriter, r *http.Request, formData *shopsListFor
 		var err error
 		shops, err = db.GetShopsByName(name, userCity, formData.Sort, formData.Limit, formData.Offset)
 		if err != nil {
-			log.Error(err)
+			logger.Error(err)
 			internalErrorResponse(w)
 			return
 		}
@@ -54,7 +59,7 @@ func shopsByQuery(w http.ResponseWriter, r *http.Request, formData *shopsListFor
 		if !ok {
 			totalCount, err = db.ShopsByNameCount(name, userCity)
 			if err != nil {
-				log.Error(err)
+				logger.Error(err)
 				internalErrorResponse(w)
 				return
 			}
@@ -63,7 +68,7 @@ func shopsByQuery(w http.ResponseWriter, r *http.Request, formData *shopsListFor
 		var err error
 		shops, err = db.GetShopsByNameWithoutCity(name, formData.Sort, formData.Limit, formData.Offset)
 		if err != nil {
-			log.Error(err)
+			logger.Error(err)
 			internalErrorResponse(w)
 			return
 		}
@@ -72,19 +77,21 @@ func shopsByQuery(w http.ResponseWriter, r *http.Request, formData *shopsListFor
 		if !ok {
 			totalCount, err = db.ShopsByNameWithoutCityCount(name)
 			if err != nil {
-				log.Error(err)
+				logger.Error(err)
 				internalErrorResponse(w)
 				return
 			}
 		}
 	}
 	serialized := serializers.SerializeShops(shops)
-	paginateResponse(w, r, serialized, totalCount, formData.Limit, formData.Offset)
+	paginateResponse(ctx, w, r, serialized, totalCount, formData.Limit, formData.Offset)
 }
 
 func shopsByCategory(w http.ResponseWriter, r *http.Request, formData *shopsListForm) {
+	ctx := r.Context()
+	logger := logging.FromContext(ctx)
 	categoryID := *formData.Category
-	if !checkCategory(w,categoryID, "log prefix") {
+	if !checkCategory(ctx, w, categoryID, "log prefix") {
 		return
 	}
 	var shops []*models.Shop
@@ -94,7 +101,7 @@ func shopsByCategory(w http.ResponseWriter, r *http.Request, formData *shopsList
 		var err error
 		shops, err = db.GetShopsByCategory(categoryID, userCity, formData.Sort, formData.Limit, formData.Offset)
 		if err != nil {
-			log.Error(err)
+			logger.Error(err)
 			internalErrorResponse(w)
 			return
 		}
@@ -103,7 +110,7 @@ func shopsByCategory(w http.ResponseWriter, r *http.Request, formData *shopsList
 		if !ok {
 			totalCount, err = db.ShopsByCategoryCount(categoryID, userCity)
 			if err != nil {
-				log.Error(err)
+				logger.Error(err)
 				internalErrorResponse(w)
 				return
 			}
@@ -112,7 +119,7 @@ func shopsByCategory(w http.ResponseWriter, r *http.Request, formData *shopsList
 		var err error
 		shops, err = db.GetShopsByCategoryWithoutCity(categoryID, formData.Sort, formData.Limit, formData.Offset)
 		if err != nil {
-			log.Error(err)
+			logger.Error(err)
 			internalErrorResponse(w)
 			return
 		}
@@ -121,17 +128,19 @@ func shopsByCategory(w http.ResponseWriter, r *http.Request, formData *shopsList
 		if !ok {
 			totalCount, err = db.ShopsByCategoryWithoutCityCount(categoryID)
 			if err != nil {
-				log.Error(err)
+				logger.Error(err)
 				internalErrorResponse(w)
 				return
 			}
 		}
 	}
 	serialized := serializers.SerializeShops(shops)
-	paginateResponse(w, r, serialized, totalCount, formData.Limit, formData.Offset)
+	paginateResponse(ctx, w, r, serialized, totalCount, formData.Limit, formData.Offset)
 }
 
 func allShops(w http.ResponseWriter, r *http.Request, formData *shopsListForm) {
+	ctx := r.Context()
+	logger := logging.FromContext(ctx)
 	var shops []*models.Shop
 	var totalCount int
 	if formData.City != nil {
@@ -139,7 +148,7 @@ func allShops(w http.ResponseWriter, r *http.Request, formData *shopsListForm) {
 		var err error
 		shops, err = db.GetShops(userCity, formData.Sort, formData.Limit, formData.Offset)
 		if err != nil {
-			log.Error(err)
+			logger.Error(err)
 			internalErrorResponse(w)
 			return
 		}
@@ -148,7 +157,7 @@ func allShops(w http.ResponseWriter, r *http.Request, formData *shopsListForm) {
 		if !ok {
 			totalCount, err = db.ShopsCount(userCity)
 			if err != nil {
-				log.Error(err)
+				logger.Error(err)
 				internalErrorResponse(w)
 				return
 			}
@@ -157,7 +166,7 @@ func allShops(w http.ResponseWriter, r *http.Request, formData *shopsListForm) {
 		var err error
 		shops, err = db.GetShopsWithoutCity(formData.Sort, formData.Limit, formData.Offset)
 		if err != nil {
-			log.Error(err)
+			logger.Error(err)
 			internalErrorResponse(w)
 			return
 		}
@@ -166,25 +175,26 @@ func allShops(w http.ResponseWriter, r *http.Request, formData *shopsListForm) {
 		if !ok {
 			totalCount, err = db.ShopsWithoutCityCount()
 			if err != nil {
-				log.Error(err)
+				logger.Error(err)
 				internalErrorResponse(w)
 				return
 			}
 		}
 	}
 	serialized := serializers.SerializeShops(shops)
-	paginateResponse(w, r, serialized, totalCount, formData.Limit, formData.Offset)
+	paginateResponse(ctx, w, r, serialized, totalCount, formData.Limit, formData.Offset)
 }
 
 func ShopsList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	ctx := r.Context()
 	formData := &shopsListForm{}
 	errs := binding.Form(r, formData)
 	if errs != nil {
-		errorResponse(w, INCORRECT_REQUEST_DATA, errs.Error(), http.StatusBadRequest)
+		errorResponse(ctx, w, INCORRECT_REQUEST_DATA, errs.Error(), http.StatusBadRequest)
 		return
 	}
 
-	if !checkCity(w, formData.City, "log prefix") {
+	if !checkCity(ctx, w, formData.City, "log prefix") {
 		return
 	}
 
@@ -200,19 +210,21 @@ func ShopsList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 }
 
 func ShopDetails(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	ctx := r.Context()
+	logger := logging.FromContext(ctx)
 	formData := shopDetailsForm{}
 	errs := binding.Form(r, &formData)
 	if errs != nil {
-		errorResponse(w, INCORRECT_REQUEST_DATA, errs.Error(), http.StatusBadRequest)
+		errorResponse(ctx, w, INCORRECT_REQUEST_DATA, errs.Error(), http.StatusBadRequest)
 		return
 	}
 	shopID, err := ps.ByNameInt("id")
 	if err != nil {
-		errorResponse(w, INCORRECT_REQUEST_DATA, err.Error(), http.StatusBadRequest)
+		errorResponse(ctx, w, INCORRECT_REQUEST_DATA, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	if !checkCity(w, formData.City, "log prefix") {
+	if !checkCity(ctx, w, formData.City, "log prefix") {
 		return
 	}
 
@@ -227,14 +239,14 @@ func ShopDetails(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		shop, err = db.GetShopDetails(shopID)
 	}
 	if err != nil {
-		log.Error(err)
+		logger.Error(err)
 		internalErrorResponse(w)
 		return
 	}
 	if shop == nil {
-		notFoundResponse(w, SHOP_NOT_FOUND)
+		notFoundResponse(ctx, w, SHOP_NOT_FOUND)
 		return
 	}
 	serialized := serializers.SerializeShop(shop)
-	response(w, serialized)
+	response(ctx, w, serialized)
 }

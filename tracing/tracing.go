@@ -27,13 +27,12 @@ func FromContext(ctx context.Context) string {
 	return reqID
 }
 
-func Middleware(w http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
+func InitializeHeaders(w http.ResponseWriter, r *http.Request) string {
 	requestID := r.Header.Get(RequestIDHeader)
 	if requestID == "" {
 		requestID = NewRequestID()
 		r.Header.Set(RequestIDHeader, requestID)
 	}
-	ctx := NewContext(r.Context(), requestID)
 	w.Header().Set(RequestIDHeader, requestID)
-	next(w, r.WithContext(ctx))
+	return requestID
 }

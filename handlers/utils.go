@@ -7,8 +7,9 @@ import (
 	"reflect"
 	"strconv"
 
-	log "github.com/Sirupsen/logrus"
+	"context"
 	"mallfin_api/db"
+	"mallfin_api/logging"
 )
 
 const (
@@ -46,33 +47,41 @@ type PaginationData struct {
 	Results    interface{} `json:"results"`
 }
 
-func writeJSON(w http.ResponseWriter, resp interface{}, status int) {
+func writeJSON(ctx context.Context, w http.ResponseWriter, resp interface{}, status int) {
+	logger := logging.FromContext(ctx)
 	b, err := json.Marshal(resp)
 	if err != nil {
-		log.Panicf("Cannot serialize response to json: %s", err)
+		logger.WithField("resp", resp).Errorf("Cannot serialize response to json: %s", err)
+		internalErrorResponse(w)
+		return
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	w.Write(b)
+	_, err = w.Write(b)
+	if err != nil {
+		logger.Errorf("Cannot write json response: %s", err)
+	}
+
 }
 
-func errorResponse(w http.ResponseWriter, errorCode, details string, status int) {
+func errorResponse(ctx context.Context, w http.ResponseWriter, errorCode, details string, status int) {
 	errObj := ErrorData{Code: errorCode, Details: details, Status: status}
 	resp := ErrorResponse{Error: &errObj}
-	writeJSON(w, resp, status)
+	writeJSON(ctx, w, resp, status)
 }
 
-func notFoundResponse(w http.ResponseWriter, errorCode string) {
-	errorResponse(w, errorCode, errorCode, http.StatusNotFound)
+func notFoundResponse(ctx context.Context, w http.ResponseWriter, errorCode string) {
+	errorResponse(ctx, w, errorCode, errorCode, http.StatusNotFound)
 }
 
 func internalErrorResponse(w http.ResponseWriter) {
-	errorResponse(w, INTERNAL_ERROR, "An internal server error occurred, please try again later.", http.StatusInternalServerError)
+	w.WriteHeader(http.StatusInternalServerError)
+	w.Write([]byte("Internal server error"))
 }
 
-func response(w http.ResponseWriter, data interface{}) {
+func response(ctx context.Context, w http.ResponseWriter, data interface{}) {
 	resp := SuccessResponse{Data: data}
-	writeJSON(w, resp, http.StatusOK)
+	writeJSON(ctx, w, resp, http.StatusOK)
 }
 
 func nextPage(totalCount, limit, offset int) (int, int, bool) {
@@ -113,7 +122,7 @@ func pageURL(r *http.Request, limit, offset int) string {
 	return url.String()
 }
 
-func paginateResponse(w http.ResponseWriter, r *http.Request, resultsList interface{}, totalCount int, limit, offset *int) {
+func paginateResponse(ctx context.Context, w http.ResponseWriter, r *http.Request, resultsList interface{}, totalCount int, limit, offset *int) {
 	limitValue := totalCount
 	if limit != nil {
 		limitValue = *limit
@@ -139,7 +148,7 @@ func paginateResponse(w http.ResponseWriter, r *http.Request, resultsList interf
 		Next:       nextPageURL,
 		Prev:       prevPageURL,
 	}
-	response(w, data)
+	response(ctx, w, data)
 }
 
 func totalCountFromResults(resultsLen int, limit, offset *int) (int, bool) {
@@ -153,73 +162,78 @@ func totalCountFromResults(resultsLen int, limit, offset *int) (int, bool) {
 	return 0, false
 }
 
-func checkCity(w http.ResponseWriter, cityID *int, logPrefix string) bool {
+func checkCity(ctx context.Context, w http.ResponseWriter, cityID *int, logPrefix string) bool {
 	if cityID != nil {
+		logger := logging.FromContext(ctx)
 		exists, err := db.IsCityExists(*cityID)
 		if err != nil {
-			log.Errorf("%s: %s", logPrefix, err)
+			logger.Errorf("%s: %s", logPrefix, err)
 			internalErrorResponse(w)
 			return false
 		}
 		if !exists {
-			notFoundResponse(w, CITY_NOT_FOUND)
+			notFoundResponse(ctx, w, CITY_NOT_FOUND)
 			return false
 		}
 	}
 	return true
 }
 
-func checkShop(w http.ResponseWriter, shopID int, logPrefix string) bool {
+func checkShop(ctx context.Context, w http.ResponseWriter, shopID int, logPrefix string) bool {
+	logger := logging.FromContext(ctx)
 	exists, err := db.IsShopExists(shopID)
 	if err != nil {
-		log.Errorf("%s: %s", logPrefix, err)
+		logger.Errorf("%s: %s", logPrefix, err)
 		internalErrorResponse(w)
 		return false
 	}
 	if !exists {
-		notFoundResponse(w, SHOP_NOT_FOUND)
+		notFoundResponse(ctx, w, SHOP_NOT_FOUND)
 		return false
 	}
 	return true
 }
 
-func checkSubwayStation(w http.ResponseWriter, stationID int, logPrefix string) bool {
+func checkSubwayStation(ctx context.Context, w http.ResponseWriter, stationID int, logPrefix string) bool {
+	logger := logging.FromContext(ctx)
 	exists, err := db.IsSubwayStationExists(stationID)
 	if err != nil {
-		log.Errorf("%s: %s", logPrefix, err)
+		logger.Errorf("%s: %s", logPrefix, err)
 		internalErrorResponse(w)
 		return false
 	}
 	if !exists {
-		notFoundResponse(w, SUBWAY_STATION_NOT_FOUND)
+		notFoundResponse(ctx, w, SUBWAY_STATION_NOT_FOUND)
 		return false
 	}
 	return true
 }
 
-func checkCategory(w http.ResponseWriter, categoryID int, logPrefix string) bool {
+func checkCategory(ctx context.Context, w http.ResponseWriter, categoryID int, logPrefix string) bool {
+	logger := logging.FromContext(ctx)
 	exists, err := db.IsCategoryExists(categoryID)
 	if err != nil {
-		log.Errorf("%s: %s", logPrefix, err)
+		logger.Errorf("%s: %s", logPrefix, err)
 		internalErrorResponse(w)
 		return false
 	}
 	if !exists {
-		notFoundResponse(w, CATEGORY_NOT_FOUND)
+		notFoundResponse(ctx, w, CATEGORY_NOT_FOUND)
 		return false
 	}
 	return true
 }
 
-func checkMall(w http.ResponseWriter, mallID int, logPrefix string) bool {
+func checkMall(ctx context.Context, w http.ResponseWriter, mallID int, logPrefix string) bool {
+	logger := logging.FromContext(ctx)
 	exists, err := db.IsMallExists(mallID)
 	if err != nil {
-		log.Errorf("%s: %s", logPrefix, err)
+		logger.Errorf("%s: %s", logPrefix, err)
 		internalErrorResponse(w)
 		return false
 	}
 	if !exists {
-		notFoundResponse(w, MALL_NOT_FOUND)
+		notFoundResponse(ctx, w, MALL_NOT_FOUND)
 		return false
 	}
 	return true

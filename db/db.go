@@ -48,7 +48,7 @@ func Initialization() {
 
 func GetClient() *pg.DB {
 	if db == nil {
-		logger.Panic("Postgres has not initialized yet")
+		panic("Postgres has not initialized yet")
 	}
 	return db
 }

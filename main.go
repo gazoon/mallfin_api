@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"mallfin_api/config"
 	"mallfin_api/db"
@@ -8,35 +9,15 @@ import (
 	"mallfin_api/redisdb"
 	"net/http"
 	_ "net/http/pprof"
-	"runtime/debug"
-
-	"flag"
 
 	"mallfin_api/logging"
-	"mallfin_api/tracing"
+	"mallfin_api/middlewares"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/gazoon/httprouter"
 	"github.com/urfave/negroni"
 )
 
 var logger = logging.WithPackage("main")
-
-func recoveryMiddleware(w http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
-	defer func() {
-		if err := recover(); err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprint(w, "Internal server error")
-			if _, isLogPanic := err.(*log.Entry); !isLogPanic {
-				log.WithField("location", "recovery middleware").Errorf("Panic recovered: %s", err)
-			}
-			if config.Debug() {
-				debug.PrintStack()
-			}
-		}
-	}()
-	next(w, r)
-}
 
 func main() {
 	var configPath string
@@ -66,11 +47,11 @@ func main() {
 	r.GET("/cities/", handlers.CitiesList)
 
 	n := negroni.New()
-	n.UseFunc(recoveryMiddleware)
+	n.UseFunc(middlewares.RecoveryMiddleware)
 	//c := cors.New(cors.Options{AllowedOrigins: []string{"*"}})
 	//n.Use(c)
-	n.UseFunc(tracing.Middleware)
-	n.UseFunc(logging.Middleware)
+	n.UseFunc(middlewares.TracingMiddleware)
+	n.UseFunc(middlewares.LoggerMiddleware)
 	n.UseHandler(r)
 	if config.Debug() {
 		go func() {
