@@ -19,6 +19,7 @@ func Search(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	formData := searchForm{}
 	errs := binding.Form(r, &formData)
 	if errs != nil {
+		logger.Warnf("incorrect form: %s", errs)
 		errorResponse(ctx, w, INCORRECT_REQUEST_DATA, errs.Error(), http.StatusBadRequest)
 		return
 	}
@@ -27,7 +28,7 @@ func Search(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	cityID := formData.City
 	shopIDs := formData.Shops
 	sorting := formData.Sort
-	if !checkCity(ctx, w, cityID, "log prefix") {
+	if !checkCity(ctx, w, cityID) {
 		return
 	}
 	var searchResults []*models.SearchResult

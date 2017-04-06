@@ -17,7 +17,7 @@ func shopsByMall(w http.ResponseWriter, r *http.Request, formData *shopsListForm
 	ctx := r.Context()
 	logger := logging.FromContext(ctx)
 	mallID := *formData.Mall
-	if !checkMall(ctx, w, mallID, "log prefix") {
+	if !checkMall(ctx, w, mallID) {
 		return
 	}
 	shops, err := db.GetShopsByMall(mallID, formData.Sort, formData.Limit, formData.Offset)
@@ -91,7 +91,7 @@ func shopsByCategory(w http.ResponseWriter, r *http.Request, formData *shopsList
 	ctx := r.Context()
 	logger := logging.FromContext(ctx)
 	categoryID := *formData.Category
-	if !checkCategory(ctx, w, categoryID, "log prefix") {
+	if !checkCategory(ctx, w, categoryID) {
 		return
 	}
 	var shops []*models.Shop
@@ -194,7 +194,7 @@ func ShopsList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		return
 	}
 
-	if !checkCity(ctx, w, formData.City, "log prefix") {
+	if !checkCity(ctx, w, formData.City) {
 		return
 	}
 
@@ -224,7 +224,7 @@ func ShopDetails(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		return
 	}
 
-	if !checkCity(ctx, w, formData.City, "log prefix") {
+	if !checkCity(ctx, w, formData.City) {
 		return
 	}
 

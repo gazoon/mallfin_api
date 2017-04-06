@@ -162,16 +162,18 @@ func totalCountFromResults(resultsLen int, limit, offset *int) (int, bool) {
 	return 0, false
 }
 
-func checkCity(ctx context.Context, w http.ResponseWriter, cityID *int, logPrefix string) bool {
+func checkCity(ctx context.Context, w http.ResponseWriter, cityID *int) bool {
 	if cityID != nil {
 		logger := logging.FromContext(ctx)
+		logger.Info("Check city in db")
 		exists, err := db.IsCityExists(*cityID)
 		if err != nil {
-			logger.Errorf("%s: %s", logPrefix, err)
+			logger.Errorf("Cannot check city: %s", err)
 			internalErrorResponse(w)
 			return false
 		}
 		if !exists {
+			logger.WithField("city_id", *cityID).Warn("City does not exist")
 			notFoundResponse(ctx, w, CITY_NOT_FOUND)
 			return false
 		}
@@ -179,11 +181,11 @@ func checkCity(ctx context.Context, w http.ResponseWriter, cityID *int, logPrefi
 	return true
 }
 
-func checkShop(ctx context.Context, w http.ResponseWriter, shopID int, logPrefix string) bool {
+func checkShop(ctx context.Context, w http.ResponseWriter, shopID int) bool {
 	logger := logging.FromContext(ctx)
 	exists, err := db.IsShopExists(shopID)
 	if err != nil {
-		logger.Errorf("%s: %s", logPrefix, err)
+		logger.Error(err)
 		internalErrorResponse(w)
 		return false
 	}
@@ -194,11 +196,11 @@ func checkShop(ctx context.Context, w http.ResponseWriter, shopID int, logPrefix
 	return true
 }
 
-func checkSubwayStation(ctx context.Context, w http.ResponseWriter, stationID int, logPrefix string) bool {
+func checkSubwayStation(ctx context.Context, w http.ResponseWriter, stationID int) bool {
 	logger := logging.FromContext(ctx)
 	exists, err := db.IsSubwayStationExists(stationID)
 	if err != nil {
-		logger.Errorf("%s: %s", logPrefix, err)
+		logger.Error(err)
 		internalErrorResponse(w)
 		return false
 	}
@@ -209,11 +211,11 @@ func checkSubwayStation(ctx context.Context, w http.ResponseWriter, stationID in
 	return true
 }
 
-func checkCategory(ctx context.Context, w http.ResponseWriter, categoryID int, logPrefix string) bool {
+func checkCategory(ctx context.Context, w http.ResponseWriter, categoryID int) bool {
 	logger := logging.FromContext(ctx)
 	exists, err := db.IsCategoryExists(categoryID)
 	if err != nil {
-		logger.Errorf("%s: %s", logPrefix, err)
+		logger.Error(err)
 		internalErrorResponse(w)
 		return false
 	}
@@ -224,11 +226,11 @@ func checkCategory(ctx context.Context, w http.ResponseWriter, categoryID int, l
 	return true
 }
 
-func checkMall(ctx context.Context, w http.ResponseWriter, mallID int, logPrefix string) bool {
+func checkMall(ctx context.Context, w http.ResponseWriter, mallID int) bool {
 	logger := logging.FromContext(ctx)
 	exists, err := db.IsMallExists(mallID)
 	if err != nil {
-		logger.Errorf("%s: %s", logPrefix, err)
+		logger.Error(err)
 		internalErrorResponse(w)
 		return false
 	}

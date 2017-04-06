@@ -23,13 +23,20 @@ func CategoriesList(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
 		return
 	}
 	sorting := formData.Sort
-	if !checkCity(ctx, w, formData.City, "log prefix") {
+	if !checkCity(ctx, w, formData.City) {
 		return
 	}
 	var categories []*models.Category
 	if formData.Shop != nil {
 		shopID := *formData.Shop
-		if !checkShop(ctx, w, shopID, "log prefix") {
+		if !checkShop(ctx, w, shopID) {
+			return
+		}
+		var err error
+		categories, err = db.GetCategoriesByShop(shopID, sorting)
+		if err != nil {
+			logger.Error(err)
+			internalErrorResponse(w)
 			return
 		}
 	} else {
@@ -60,7 +67,7 @@ func CategoryDetails(w http.ResponseWriter, r *http.Request, ps httprouter.Param
 		return
 	}
 	cityID := formData.City
-	if !checkCity(ctx, w, cityID, "log prefix") {
+	if !checkCity(ctx, w, cityID) {
 		return
 	}
 	category, err := db.GetCategoryDetails(categoryID)

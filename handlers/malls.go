@@ -17,7 +17,7 @@ func mallsBySubwayStation(w http.ResponseWriter, r *http.Request, formData *mall
 	ctx := r.Context()
 	logger := logging.FromContext(ctx)
 	subwayStationID := *formData.SubwayStation
-	if !checkSubwayStation(ctx, w, subwayStationID, "log prefix") {
+	if !checkSubwayStation(ctx, w, subwayStationID) {
 		return
 	}
 	malls, err := db.GetMallsBySubwayStation(subwayStationID, formData.Sort, formData.Limit, formData.Offset)
@@ -28,6 +28,7 @@ func mallsBySubwayStation(w http.ResponseWriter, r *http.Request, formData *mall
 	}
 	totalCount, ok := totalCountFromResults(len(malls), formData.Limit, formData.Offset)
 	if !ok {
+		logger.Info("Getting count of malls by station from db")
 		totalCount, err = db.MallsBySubwayStationCount(subwayStationID)
 		if err != nil {
 			logger.Error(err)
@@ -91,7 +92,7 @@ func mallsByShop(w http.ResponseWriter, r *http.Request, formData *mallsListForm
 	ctx := r.Context()
 	logger := logging.FromContext(ctx)
 	shopID := *formData.Shop
-	if !checkShop(ctx, w, shopID, "log prefix") {
+	if !checkShop(ctx, w, shopID) {
 		return
 	}
 	var malls []*models.Mall
@@ -194,7 +195,7 @@ func MallsList(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		return
 	}
 
-	if !checkCity(ctx, w, formData.City, "log prefix") {
+	if !checkCity(ctx, w, formData.City) {
 		return
 	}
 
